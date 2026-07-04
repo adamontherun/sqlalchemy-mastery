@@ -476,15 +476,50 @@ code {
   display: block;
 }
 
+/* ---------- responsive tables & code (all widths) ---------- */
+
+/* Inline code can contain long unbroken tokens (URLs, signatures); let it
+   break rather than force the whole line (and grid track) wider. Code
+   blocks keep their own horizontal scroll instead (see .codeblock pre). */
+:not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+/* A <table> with display:block scrolls as a unit while its <tr>/<td>
+   children still get an anonymous table box for column alignment. */
+table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* ...but keep parameter-name code unbroken inside cells: letting a table
+   column wrap mid-word (pool_siz / e) looks broken. Better to let the
+   table itself scroll (above) than mangle a short identifier. */
+td code, th code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
 /* ---------- mobile ---------- */
 
 .menu-btn { display: none; }
 
 @media (max-width: 900px) {
-  .book { grid-template-columns: 1fr; }
+  /* Bare 1fr has an implicit min-width:auto, so a wide <pre> or <table>
+     forces this track (and the whole page) wider than the viewport.
+     minmax(0, 1fr) lets the track shrink to the viewport; overflowing
+     content then scrolls inside its own box instead of the whole page. */
+  .book { grid-template-columns: minmax(0, 1fr); }
   .sidebar {
     position: fixed;
-    inset: 0 25% 0 0;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    /* width, not a right-edge percentage: translateX(-100%) is relative to
+       this element's own box, so the drawer's math never depends on the
+       viewport's containing-block width being computed consistently. */
+    width: min(85vw, 320px);
     z-index: 50;
     padding-top: 4.25rem;   /* clear the floating Chapters button */
     transform: translateX(-100%);
@@ -492,6 +527,7 @@ code {
     box-shadow: var(--shadow);
   }
   .sidebar.open { transform: none; }
+  .sidebar ol a { padding: 0.55rem 0.6rem; }   /* bigger tap targets */
   .menu-btn {
     display: inline-flex;
     position: fixed;
@@ -501,7 +537,7 @@ code {
     background: var(--bg-raised);
     border: 1px solid var(--rule);
     border-radius: 9px;
-    padding: 0.45rem 0.7rem;
+    padding: 0.55rem 0.8rem;
     font-family: var(--font-ui);
     font-size: 0.85rem;
     color: var(--ink);
@@ -509,6 +545,16 @@ code {
     box-shadow: var(--shadow);
   }
   main { padding-top: 4.5rem; }
+
+  .chapter-nav a { max-width: calc(50% - 0.5rem); }
+  .chapter-nav .next { margin-left: 0; }
+
+  .cover .toc-part a { padding: 0.85rem 0.6rem; }
+}
+
+@media (max-width: 480px) {
+  .chapter-nav { flex-wrap: wrap; }
+  .chapter-nav a, .chapter-nav .next { max-width: 100%; margin-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
