@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 1 · The lay of the land — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html" class="current"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 1 · Part I — Foundations</p>
+      <h1>The lay of the land</h1>
+      <p class="lede">
+        SQLAlchemy is not an ORM. It <em>contains</em> one — a very good one — but
+        thinking of it as "the Python ORM" is how people end up fighting it. This
+        chapter builds the mental model everything else hangs off.
+      </p>
+
+      <h2>A toolkit, arranged in layers</h2>
+      <p>
+        You already speak SQL. That's a real advantage here, because SQLAlchemy's
+        deepest design commitment is that <strong>it never hides SQL from you</strong>.
+        Its own docs call the philosophy "SQLAlchemy considers the database to be a
+        relational algebra engine, not just a collection of tables." Every layer of
+        the library is a thin, inspectable translation of things you already know.
+      </p>
+      <p>The layers, from the metal up:</p>
+      <ol>
+        <li>
+          <strong>The DBAPI driver.</strong> A third-party package that actually talks
+          the wire protocol — for PostgreSQL in this course that's
+          <code>psycopg</code> (sync) and <code>asyncpg</code> (async). SQLAlchemy
+          never sends a byte itself.
+        </li>
+        <li>
+          <strong>The dialect.</strong> SQLAlchemy's adapter for one database + driver
+          combination. It knows that PostgreSQL spells string concatenation
+          <code>||</code>, how <code>RETURNING</code> works, how to reflect a
+          schema, and a hundred other quirks.
+        </li>
+        <li>
+          <strong>The Engine and its connection pool.</strong> The factory for
+          database connections and the pool that recycles them. One per database,
+          per process, for the life of your application. Chapter 2 is all about this.
+        </li>
+        <li>
+          <strong>Core — the SQL Expression Language.</strong> Python objects that
+          <em>are</em> SQL: <code>select()</code>, <code>insert()</code>,
+          <code>Table</code>, <code>Column</code>. Composable, safely parameterized,
+          database-agnostic where possible and database-specific where you want it.
+        </li>
+        <li>
+          <strong>The ORM.</strong> Built entirely on top of Core. It adds classes
+          mapped to tables, the <code>Session</code>'s unit of work, relationships,
+          and identity-mapped objects. It compiles down to Core; Core compiles down
+          to SQL strings; the driver ships them.
+        </li>
+      </ol>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          When you write <code>select(User).where(User.name == "adam")</code>, the
+          <code>==</code> doesn't compare anything. <code>User.name</code> is an
+          instrumented attribute that <em>overloads</em> <code>==</code> to return a
+          <code>BinaryExpression</code> — a node in a SQL syntax tree. The tree only
+          becomes the string <code>SELECT ... WHERE users.name = %(name_1)s</code>
+          when the dialect compiles it at execution time. You are writing SQL with
+          Python operator overloading, not calling an API that generates SQL.
+        </p>
+      </aside>
+
+      <h2>Core or ORM — which do you use?</h2>
+      <p>
+        Both, usually. The honest answer for a modern application: define your schema
+        and everyday persistence with the <strong>ORM</strong>, and drop into
+        <strong>Core</strong> expressions freely for reporting queries, bulk
+        operations, and anything where you want rows rather than objects. Since 2.0,
+        this is one skill, not two — the same <code>select()</code> construct works
+        against tables and mapped classes alike, executed by a
+        <code>Connection</code> (Core) or a <code>Session</code> (ORM).
+      </p>
+      <table>
+        <thead><tr><th>You want</th><th>Reach for</th></tr></thead>
+        <tbody>
+          <tr><td>Domain objects with identity and relationships</td><td>ORM · <code>Session</code></td></tr>
+          <tr><td>Plain rows, aggregates, reports</td><td>Core · <code>Connection</code>, or ORM returning rows</td></tr>
+          <tr><td>Bulk load of a million rows</td><td>Core <code>insert()</code> with parameter lists</td></tr>
+          <tr><td>One weird vendor-specific statement</td><td><code>text()</code> — hand-written SQL is a first-class citizen</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Why old tutorials will mislead you</h2>
+      <p>
+        SQLAlchemy is over twenty years old, and the internet is a sedimentary record
+        of every era. In 2023 the project landed <strong>2.0</strong>, the largest
+        cleanup in its history, and the version this book targets (2.0.51 as of
+        writing). If a tutorial shows any of the following, it's teaching you the
+        1.x world:
+      </p>
+      <ul>
+        <li><code>session.query(User).filter_by(...)</code> — the legacy
+          <code>Query</code> API. Modern code writes
+          <code>session.execute(select(User).where(...))</code> or the
+          <code>session.scalars(...)</code> shorthand.</li>
+        <li><code>Base = declarative_base()</code> — replaced by
+          <code>class Base(DeclarativeBase)</code>, which type checkers understand.</li>
+        <li><code>Column("name", String(50))</code> in models — replaced by
+          <code>Mapped[str]</code> annotations with <code>mapped_column()</code>,
+          giving you real static typing end to end.</li>
+        <li><code>engine.execute(...)</code> or bare string execution — implicit
+          "autocommit" connections are gone. Transactions are always explicit now.</li>
+      </ul>
+      <p>
+        None of the old spellings make you faster; they just make your code look like
+        an archaeological dig. The 2.0 API is smaller, typed, and — crucially —
+        <em>identical in shape</em> between sync and async, which will pay off
+        enormously in Chapter 8.
+      </p>
+
+      <aside class="callout watch21">
+        <span class="callout-title">⏭ 2.1 watch</span>
+        <p>
+          SQLAlchemy 2.1 (in beta as this book is written) keeps the 2.0 API intact.
+          Notable changes: <code>greenlet</code> stops installing automatically
+          (async users install <code>sqlalchemy[asyncio]</code>), Python 3.10 becomes
+          the floor, and typed results drop the <code>Tuple</code> wrapper —
+          <code>Select[Tuple[int, str]]</code> becomes <code>Select[int, str]</code>.
+          Everything you learn here carries over.
+        </p>
+      </aside>
+
+      <h2>Your first round-trip</h2>
+      <p>
+        Enough cartography. Here is the entire stack — driver, dialect, engine, Core —
+        exercised in a dozen lines. This is
+        <code>examples/ch01/01_hello_sqlalchemy.py</code> in the course repo:
+      </p>
+
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch01/01_hello_sqlalchemy.py</figcaption>
+        <pre><code class="language-python">from sqlalchemy import create_engine, text
+
+engine = create_engine("postgresql+psycopg://course:course@localhost:5439/course")
+
+with engine.connect() as conn:
+    version = conn.execute(text("SELECT version()")).scalar_one()
+    answer = conn.execute(
+        text("SELECT :a + :b AS answer"), {"a": 40, "b": 2}
+    ).scalar_one()
+
+print(f"Connected to: {version}")
+print(f"The database says 40 + 2 = {answer}")</code></pre>
+      </figure>
+
+      <p>Read it as a tour of the layers:</p>
+      <ul>
+        <li>The URL <code>postgresql+psycopg://…</code> names the
+          <strong>dialect</strong> (<code>postgresql</code>) and the
+          <strong>driver</strong> (<code>psycopg</code>) explicitly. Swap
+          <code>+psycopg</code> for <code>+asyncpg</code> and (with the async engine)
+          the rest of your SQL knowledge transfers untouched.</li>
+        <li><code>create_engine()</code> builds the <strong>Engine</strong> — lazily.
+          No connection happens until first use.</li>
+        <li><code>engine.connect()</code> checks a connection out of the
+          <strong>pool</strong>; the <code>with</code> block returns it. Forgetting
+          this is the #1 way to exhaust a pool in production — Chapter 2 has the
+          receipts.</li>
+        <li><code>text()</code> wraps literal SQL, and <code>:a</code>/<code>:b</code>
+          are <strong>bound parameters</strong> — never f-strings. The driver sends
+          the values separately from the statement; SQL injection is structurally
+          impossible here.</li>
+        <li><code>.scalar_one()</code> is the Result API insisting on exactly one row,
+          one column — it raises if the shape surprises you. Loud failure is a
+          recurring SQLAlchemy virtue.</li>
+      </ul>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          A plain <code>engine.connect()</code> block <strong>rolls back</strong>
+          anything you didn't commit. Run an <code>INSERT</code> inside it, exit the
+          block, and your row silently vanishes — the pool resets connections with a
+          rollback on return. This bites almost everyone once. Chapter 2 covers the
+          two transaction patterns (<code>connect()</code> + explicit
+          <code>commit()</code>, vs <code>begin()</code>) that make intent explicit.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Start the database and run the example:
+          <code>docker compose up -d</code>, then
+          <code>uv run examples/ch01/01_hello_sqlalchemy.py</code>.
+        </p>
+        <p>
+          Then take the chapter challenge: <code>uv run pytest challenges/ch01</code>
+          — edit <code>challenges/ch01/challenge.py</code> until the tests pass. It
+          asks you to build a URL with <code>URL.create()</code> and run a
+          parameterized query, using only what you saw above.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a class="next" href="ch02.html"><span class="dir">Next →</span>Engines &amp; connections</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

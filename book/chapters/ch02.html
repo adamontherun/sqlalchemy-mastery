@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 2 · Engines &amp; connections — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html" class="current"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 2 · Part I — Foundations</p>
+      <h1>Engines &amp; connections</h1>
+      <p class="lede">
+        The Engine looks boring — one call to <code>create_engine()</code> and you
+        never think about it again. That's exactly why it causes so many production
+        incidents. This chapter makes you the person who understands the pool.
+      </p>
+
+      <h2>One Engine, for the life of the process</h2>
+      <p>
+        An <code>Engine</code> is three things bolted together: a <strong>dialect</strong>
+        (how to speak PostgreSQL), a <strong>connection pool</strong> (a bag of live
+        TCP connections), and a <strong>URL</strong> saying where to connect. It is
+        expensive to build, cheap to use, and completely thread-safe:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">the one-liner with everything implicit</figcaption>
+        <pre><code class="language-python">from sqlalchemy import create_engine
+
+engine = create_engine("postgresql+psycopg://course:course@localhost:5439/course")</code></pre>
+      </figure>
+      <p>
+        The rule: <strong>one Engine per database, per process, created once at
+        startup</strong>. Creating engines per request is the classic
+        beginner-to-intermediate mistake — every one starts a cold pool, and your
+        database watches connection counts sawtooth while your latency graphs weep.
+      </p>
+      <p>
+        Also note what <em>doesn't</em> happen at construction: nothing. No network,
+        no validation. The first real connection is made on first use — so a typo'd
+        password surfaces at the first query, not at startup. If you want fail-fast
+        behavior, do a <code>SELECT 1</code> during boot.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Don't build URLs with f-strings — a password containing <code>@</code>,
+          <code>/</code> or <code>%</code> will shred your URL in a way you'll
+          debug for an hour. <code>URL.create(...)</code> takes the parts as
+          keyword arguments and handles escaping. It also keeps the password out
+          of <code>repr()</code> — SQLAlchemy masks it when the URL is printed
+          or logged.
+        </p>
+      </aside>
+
+      <h2>Connections, and the rollback surprise</h2>
+      <p>
+        <code>engine.connect()</code> checks a connection out of the pool and hands
+        you a <code>Connection</code>. The <code>with</code> block returns it. Here
+        is the part that ambushes almost everyone at least once
+        (<code>examples/ch02/01_connect_vs_begin.py</code>):
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch02/01_connect_vs_begin.py — abridged</figcaption>
+        <pre><code class="language-python">with engine.connect() as conn:
+    conn.execute(text("INSERT INTO ch02_notes VALUES ('I will disappear')"))
+    # no conn.commit()!
+
+with engine.connect() as conn:
+    count = conn.execute(text("SELECT count(*) FROM ch02_notes")).scalar_one()
+# count == 0  — the INSERT is gone</code></pre>
+      </figure>
+      <p>
+        Modern SQLAlchemy has <strong>no autocommit</strong>. Every connection is
+        always inside a transaction, and when a connection goes back to the pool,
+        the pool issues a <strong>rollback</strong> to guarantee the next borrower
+        gets a clean connection. Uncommitted work evaporates, silently and by design.
+      </p>
+      <p>You have two intentional patterns to choose from:</p>
+      <figure class="codeblock">
+        <figcaption class="code-label">commit-as-you-go vs begin-once</figcaption>
+        <pre><code class="language-python"># 1. "commit as you go" — several commits on one connection
+with engine.connect() as conn:
+    conn.execute(insert_stmt_one)
+    conn.commit()
+    conn.execute(insert_stmt_two)
+    conn.commit()
+
+# 2. "begin once" — the whole block is ONE transaction:
+#    commits if it exits cleanly, rolls back on any exception
+with engine.begin() as conn:
+    conn.execute(debit_stmt)
+    conn.execute(credit_stmt)</code></pre>
+      </figure>
+      <p>
+        <code>engine.begin()</code> is the one you'll reach for most: it's
+        the shape of an atomic business operation. The chapter challenge makes you
+        move money with it — with a test that tries to make money vanish.
+      </p>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          "No autocommit" is SQLAlchemy policy, not a driver limitation. The DBAPI
+          spec itself says connections open in transaction mode; 1.x SQLAlchemy
+          papered over it with "autocommit" magic that guessed when you meant to
+          commit (it looked for INSERT/UPDATE/DELETE in your SQL — really). 2.0
+          removed the guessing. If you genuinely want driver-level autocommit —
+          say, for <code>VACUUM</code> or <code>CREATE DATABASE</code> which can't
+          run in a transaction — it's explicit:
+          <code>engine.execution_options(isolation_level="AUTOCOMMIT")</code>.
+        </p>
+      </aside>
+
+      <h2>The pool: your app's most important queue</h2>
+      <p>
+        Opening a PostgreSQL connection costs a TCP handshake, TLS negotiation,
+        authentication, and a backend process fork on the server — tens of
+        milliseconds and real server memory. Doing that per query would be ruinous,
+        so the Engine keeps a <code>QueuePool</code> of live connections and lends
+        them out. The parameters that define its behavior:
+      </p>
+      <table>
+        <thead><tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>pool_size</code></td><td>5</td><td>Connections kept open persistently</td></tr>
+          <tr><td><code>max_overflow</code></td><td>10</td><td>Extra connections allowed under burst; closed when returned</td></tr>
+          <tr><td><code>pool_timeout</code></td><td>30 s</td><td>How long a checkout waits for a free connection before raising</td></tr>
+          <tr><td><code>pool_recycle</code></td><td>-1 (off)</td><td>Retire connections older than N seconds</td></tr>
+          <tr><td><code>pool_pre_ping</code></td><td>False</td><td>Test each connection with a ping at checkout</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Do the arithmetic: defaults allow <strong>5 + 10 = 15</strong> concurrent
+        checkouts. The 16th request waits up to 30 seconds, then raises. You can
+        watch this happen in fast-forward — the demo uses a pool of 2+1 and a 1.5 s
+        timeout (<code>examples/ch02/02_pool_anatomy.py</code>):
+      </p>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">actual output</figcaption>
+        <pre><code class="language-text">3 connections held:   Pool size: 2  Connections in pool: 0  Current Overflow: 1  Current Checked out connections: 3
+
+Asking for a 4th connection (this is what a leak feels like)...
+  -&gt; TimeoutError: QueuePool limit of size 2 overflow 1 reached,
+     connection timed out, timeout 1.50
+     (Background on this error at: https://sqlalche.me/e/20/3o7r)</code></pre>
+      </figure>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          When <code>QueuePool limit ... reached</code> shows up in production,
+          the reflex is to raise <code>pool_size</code>. Resist it. In the wild
+          this error is almost always a <strong>connection leak</strong> — some
+          code path checks out a connection (or Session) and never closes it,
+          often only on an error branch. A bigger pool just delays the same
+          failure and adds load to the database. Hunt the leak: every
+          <code>connect()</code>/<code>Session()</code> belongs in a
+          <code>with</code> block, and <code>engine.pool.status()</code> tells you
+          how many connections are checked out right now.
+        </p>
+      </aside>
+
+      <h2>Connections die. Plan for it.</h2>
+      <p>
+        A pooled connection can sit idle for minutes — plenty of time for a
+        firewall, a load balancer, a database restart, or a cloud provider's NAT
+        gateway to quietly kill the TCP stream. The next borrower gets a dead
+        connection and a miserable stack trace. Two defenses:
+      </p>
+      <ul>
+        <li>
+          <strong><code>pool_pre_ping=True</code></strong> — pessimistic and simple:
+          on every checkout the pool sends a lightweight ping; if it fails, the
+          connection (and any others older than it) is replaced before your query
+          runs. Costs one round-trip per checkout; for almost every service the
+          right answer is <em>turn it on</em>.
+        </li>
+        <li>
+          <strong><code>pool_recycle=1800</code></strong> — retire connections
+          before the infrastructure does. Thirty minutes is a sane figure for
+          most networks (the famous motivator: MySQL's default 8-hour
+          <code>wait_timeout</code>, but AWS NAT gateways at 350 s idle are the
+          modern culprit).
+        </li>
+      </ul>
+      <p>
+        <code>examples/ch02/03_production_engine.py</code> wires both, plus pool
+        event listeners so you can watch checkouts, reuse, and replacement of an
+        invalidated connection happen live.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          <strong>Two pools don't stack.</strong> If your infrastructure uses
+          <a href="https://www.pgbouncer.org/">pgbouncer</a> in transaction-pooling
+          mode, SQLAlchemy's QueuePool holding long-lived connections works
+          <em>against</em> it and produces confusing failures. The standard advice:
+          give SQLAlchemy <code>poolclass=NullPool</code> and let pgbouncer own
+          pooling — or skip pgbouncer until you have the scale that demands it.
+          (There's an extra asyncpg-specific trap here; chapter 8 covers it.)
+          <br><br>
+          <strong>Pools don't survive fork.</strong> Gunicorn's prefork workers and
+          <code>multiprocessing</code> both copy the parent's file descriptors —
+          two processes sharing one TCP connection is corruption roulette. Create
+          the engine after fork, or call <code>engine.dispose(close=False)</code>
+          in each child's initializer.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run the three examples: <code>uv run examples/ch02/01_connect_vs_begin.py</code>,
+          then <code>02_pool_anatomy.py</code> and <code>03_production_engine.py</code>.
+          Watch the pool's status line change as connections are held and released.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch02</code> — configure a
+          production-grade engine, then implement an atomic money transfer that a
+          malicious test cannot break. <code>engine.begin()</code> is your friend.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch01.html"><span class="dir">← Previous</span>The lay of the land</a>
+        <a class="next" href="ch03.html"><span class="dir">Next →</span>Querying with Core</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

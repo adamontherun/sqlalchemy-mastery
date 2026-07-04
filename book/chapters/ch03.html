@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 3 · Querying with Core — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html" class="current"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 3 · Part I — Foundations</p>
+      <h1>Querying with Core</h1>
+      <p class="lede">
+        The SQL Expression Language is the beating heart of SQLAlchemy — the ORM is
+        a layer on top of it, not beside it. Learn it well here and Part II becomes
+        easy, because <em>the querying never changes</em>.
+      </p>
+
+      <h2>Schema as data: MetaData and Table</h2>
+      <p>
+        Before you can query tables, SQLAlchemy needs Python objects that describe
+        them. A <code>Table</code> is exactly that — a description, collected into a
+        <code>MetaData</code> registry:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch03/01_tables_and_ddl.py — abridged</figcaption>
+        <pre><code class="language-python">from sqlalchemy import Column, ForeignKey, Integer, MetaData, Numeric, String, Table
+
+metadata = MetaData()
+
+books = Table(
+    "books",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("title", String(200), nullable=False),
+    Column("genre", String(50), nullable=False),
+    Column("price", Numeric(8, 2), nullable=False),
+    Column("author_id", ForeignKey("authors.id"), nullable=False),
+)</code></pre>
+      </figure>
+      <p>
+        Because it's data, you can do data things with it: compile it to DDL and
+        print it, walk its columns, hand it to Alembic for migrations, or call
+        <code>metadata.create_all(engine)</code> — which emits
+        <code>CREATE TABLE</code> for anything missing and never touches tables that
+        already exist. (It also never <em>alters</em> anything: schema evolution is
+        Alembic's job, chapter 9.)
+      </p>
+      <p>
+        In Part II you'll define schemas with ORM classes instead — but every ORM
+        model <em>generates</em> one of these <code>Table</code> objects underneath
+        (it lives at <code>Model.__table__</code>). Nothing you learn here is thrown
+        away.
+      </p>
+
+      <h2>insert() — and the executemany trick</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">one row with RETURNING, then a batch</figcaption>
+        <pre><code class="language-python">from sqlalchemy import insert
+
+with engine.begin() as conn:
+    # single row; RETURNING fetches the generated primary key in the same trip
+    new_id = conn.execute(
+        insert(books).returning(books.c.id),
+        {"title": "The Left Hand of Darkness", "genre": "sf", "price": 18.99},
+    ).scalar_one()
+
+    # many rows: pass a LIST of dicts — SQLAlchemy switches to batch mode
+    conn.execute(insert(books), [
+        {"title": "A Wizard of Earthsea", "genre": "fantasy", "price": 15.50},
+        {"title": "The Dispossessed",     "genre": "sf",      "price": 17.25},
+    ])</code></pre>
+      </figure>
+
+      <aside class="callout underhood">
+        <span class="callout-title">🔬 Under the hood</span>
+        <p>
+          That list-of-dicts form triggers <strong>insertmanyvalues</strong>, a 2.0
+          feature: SQLAlchemy rewrites the INSERT to carry many
+          <code>VALUES (...), (...), ...</code> tuples per statement — even
+          combined with <code>RETURNING</code>, which classic DBAPI
+          <code>executemany</code> can't do. That's how the ORM flushes thousands
+          of new objects fast, too.
+        </p>
+      </aside>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          <code>Result.rowcount</code> is reliable for single-statement UPDATE and
+          DELETE — but for batched inserts many drivers report <strong>-1</strong>.
+          If you need an exact count from a bulk insert, add
+          <code>.returning(table.c.id)</code> and count the rows that come back.
+          The chapter challenge makes sure you meet this one in a controlled
+          environment.
+        </p>
+      </aside>
+
+      <h2>select() — composition over concatenation</h2>
+      <p>
+        Every clause you know from SQL has a method, and every method returns a
+        <em>new</em> statement (they're immutable — safe to build up in branches
+        and helpers):
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">the shape of a query</figcaption>
+        <pre><code class="language-python">from sqlalchemy import select
+
+stmt = (
+    select(books.c.title, books.c.price)
+    .where(books.c.genre == "sf")             # WHERE, repeatable: ANDed together
+    .where(books.c.price &lt; 20)
+    .order_by(books.c.price.desc())
+    .limit(5)
+)
+print(stmt)   # a statement is an object; printing shows its SQL</code></pre>
+      </figure>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">what the database sees</figcaption>
+        <pre><code class="language-sql">SELECT books.title, books.price
+FROM books
+WHERE books.genre = %(genre_1)s AND books.price &lt; %(price_1)s
+ORDER BY books.price DESC
+LIMIT %(param_1)s</code></pre>
+      </figure>
+      <p>
+        Note what you did <em>not</em> do: interpolate a single value into a string.
+        Every Python value became a bound parameter automatically. For richer
+        conditions there are <code>or_()</code>, <code>and_()</code>,
+        <code>not_()</code>, <code>Column.in_()</code>, <code>.like()</code>,
+        <code>.between()</code>, <code>.is_(None)</code> (SQL's
+        <code>IS NULL</code> — <code>== None</code> works too but linters hate it),
+        and when the operator you want doesn't exist:
+        <code>column.op("&lt;-&gt;")(value)</code> compiles any operator verbatim.
+      </p>
+
+      <h2>Reading results: the Result API</h2>
+      <p>
+        <code>conn.execute()</code> returns a <code>Result</code>; iterating yields
+        <code>Row</code> objects that behave like named tuples —
+        <code>row.title</code>, <code>row[0]</code>, and unpacking all work. The
+        methods you'll actually use:
+      </p>
+      <table>
+        <thead><tr><th>Call</th><th>Returns</th><th>Reach for it when</th></tr></thead>
+        <tbody>
+          <tr><td><code>.all()</code></td><td>list[Row]</td><td>You want every row</td></tr>
+          <tr><td><code>.first()</code></td><td>Row | None</td><td>Just the first row, if any</td></tr>
+          <tr><td><code>.one()</code></td><td>Row</td><td>Exactly one row <em>must</em> exist — raises otherwise</td></tr>
+          <tr><td><code>.scalars()</code></td><td>column values</td><td>One-column queries; skip the Row wrapper</td></tr>
+          <tr><td><code>.scalar_one()</code></td><td>a single value</td><td>One row, one column — counts, ids, EXISTS</td></tr>
+          <tr><td><code>.mappings()</code></td><td>dict-like rows</td><td>You're serializing to JSON anyway</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The <code>.one()</code> family is quietly one of SQLAlchemy's best habits:
+        it turns "impossible" data states into immediate, loud errors instead of a
+        <code>None</code> that detonates three functions later.
+      </p>
+
+      <h2>update() and delete() — set-based, like SQL intended</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">computing in the database, not in Python</figcaption>
+        <pre><code class="language-python">from sqlalchemy import delete, func, update
+
+# 10% off all fantasy — one statement, no fetch-modify-save loop
+conn.execute(
+    update(books)
+    .where(books.c.genre == "fantasy")
+    .values(price=func.round(books.c.price * Decimal("0.9"), 2))
+    .returning(books.c.title, books.c.price)   # see what changed, same trip
+)
+
+conn.execute(delete(books).where(books.c.price &gt; 50))</code></pre>
+      </figure>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          See that <code>Decimal("0.9")</code>? Multiply a <code>NUMERIC</code>
+          column by a Python <code>float</code> and PostgreSQL silently promotes
+          the expression to <code>double precision</code> — at which point
+          <code>round(..., 2)</code> fails with
+          <code>function round(double precision, integer) does not exist</code>.
+          Keep money in <code>Numeric</code>/<code>Decimal</code> end to end; the
+          moment a float sneaks in, PostgreSQL will tell you — this error message
+          is a rite of passage.
+        </p>
+      </aside>
+
+      <h2>Joins and aggregates</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch03/03_joins_aggregates.py — abridged</figcaption>
+        <pre><code class="language-python">from sqlalchemy import func
+
+stmt = (
+    select(
+        authors.c.name,
+        func.count(books.c.id).label("n_books"),
+        func.avg(books.c.price).label("avg_price"),
+    )
+    .join_from(authors, books)          # ON inferred from the ForeignKey
+    .group_by(authors.c.name)
+    .having(func.count(books.c.id) &gt; 1)
+)
+
+# and a scalar subquery — books above the average price:
+avg_price = select(func.avg(books.c.price)).scalar_subquery()
+pricey = select(books.c.title).where(books.c.price &gt; avg_price)</code></pre>
+      </figure>
+      <p>
+        <code>join_from(left, right)</code> makes the FROM side explicit; plain
+        <code>.join(right)</code> works when it's unambiguous. The join condition
+        comes from the <code>ForeignKey</code> — or pass one explicitly as a second
+        argument. And <code>func</code> is an open namespace:
+        <code>func.count</code>, <code>func.avg</code>,
+        <code>func.jsonb_agg</code>, <code>func.anything_your_db_has</code> —
+        SQLAlchemy compiles the name verbatim and lets the database be the judge.
+      </p>
+
+      <h2>text() — hand-written SQL is not cheating</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">first-class raw SQL</figcaption>
+        <pre><code class="language-python">from sqlalchemy import text
+
+stmt = text("""
+    SELECT genre, count(*) AS n
+    FROM books
+    WHERE price &lt; :max_price
+    GROUP BY genre
+""")
+rows = conn.execute(stmt, {"max_price": 20}).all()   # same Result API!</code></pre>
+      </figure>
+      <p>
+        SQLAlchemy's own docs are emphatic on this: dropping to raw SQL for a
+        gnarly report, a vendor-specific feature, or a query the planner likes
+        better is normal, supported practice — with <code>:named</code> bound
+        parameters and the full Result API. The library's promise was never "no
+        SQL"; it was "no <em>string-glued</em> SQL."
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run the examples:
+          <code>uv run examples/ch03/01_tables_and_ddl.py</code>,
+          <code>02_core_crud.py</code>, <code>03_joins_aggregates.py</code>.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch03</code> — a tiny bookshop:
+          batch insert with an exact count, sorted genre listings,
+          database-computed averages, and a discount via
+          <code>UPDATE ... RETURNING</code>. Both chapter gotchas are lying in
+          wait, on purpose.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch02.html"><span class="dir">← Previous</span>Engines &amp; connections</a>
+        <a class="next" href="ch04.html"><span class="dir">Next →</span>Declarative models</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>
