@@ -6,6 +6,8 @@ service, taught against a real PostgreSQL 17 database rather than a toy.
 
 [![Read the Book](https://img.shields.io/badge/📖_Read_the_Book-adamontherun.github.io-c0392b)](https://adamontherun.github.io/sqlalchemy-mastery/)
 
+[![The book's homepage: a hands-on course on SQLAlchemy 2.0 with a sidebar table of contents covering engines, the ORM, async, and production topics](book/assets/screenshots/homepage.png)](https://adamontherun.github.io/sqlalchemy-mastery/)
+
 This repo is two things: **the book** (12 chapters of prose, nothing to
 install) and **the code** (runnable examples and failing-test challenges,
 which need an environment). Every chapter in the book links straight back to
