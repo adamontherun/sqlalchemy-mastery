@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 11 · Performance — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html" class="current"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 11 · Part IV — Production</p>
+      <h1>Performance</h1>
+      <p class="lede">
+        Slow SQLAlchemy is almost never SQLAlchemy being slow — it's your code
+        asking for the wrong shape of work: too many round-trips, too many
+        transactions, too many objects. Every fix in this chapter is about
+        changing the shape.
+      </p>
+
+      <h2>Round-trips and transactions dominate everything</h2>
+      <p>
+        The numbers from <code>examples/ch11/01_bulk_inserts.py</code>, inserting
+        5,000 rows on this course's own setup:
+      </p>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">actual output</figcaption>
+        <pre><code class="language-text">inserting 5,000 rows, three ways:
+  commit per row (never do this)             8.26s
+  ORM add_all + one commit                   0.16s
+  Core insert() executemany                  0.08s</code></pre>
+      </figure>
+      <p>
+        A <strong>100× difference</strong>, and no index or hardware was involved.
+        The per-row version pays a full transaction — including the WAL fsync —
+        five thousand times. The lesson generalizes: batch your work, commit
+        once per logical operation, and if the rows are just data (no identity,
+        no behavior), skip building ORM objects entirely and hand
+        <code>insert()</code> a list of dicts.
+      </p>
+
+      <h2>Finding the waste: read what you emit</h2>
+      <ul>
+        <li><code>create_engine(echo=True)</code> in development — then actually
+          read it. N+1 patterns (Chapter 7) are unmissable once seen: the same
+          SELECT with different parameters, over and over.</li>
+        <li>The echo shows <code>[cached since ...]</code> on repeated statement
+          shapes — 2.0's compiled-statement cache at work. It's why building the
+          same <code>select()</code> in a loop is cheaper than it looks, and why
+          wildly dynamic query construction is more expensive than it looks.</li>
+        <li>In production, use the logging module
+          (<code>sqlalchemy.engine</code> logger) or better, the two-event
+          slow-query logger from <code>examples/ch11/03_pool_monitoring.py</code>:
+          <code>before_cursor_execute</code> stamps a start time,
+          <code>after_cursor_execute</code> reports anything over threshold.</li>
+        <li>Export <code>engine.pool.status()</code> numbers as metrics. A
+          checked-out count pinned at pool max is the leak signature from
+          Chapter 2, visible <em>before</em> the TimeoutErrors start.</li>
+      </ul>
+
+      <h2>Streaming: constant memory for unbounded rows</h2>
+      <p>
+        <code>.all()</code> materializes every row and every ORM object at once.
+        For exports, ETL, and reports, stream instead —
+        <code>examples/ch11/02_streaming.py</code> measures 50,000 rows:
+      </p>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">actual output</figcaption>
+        <pre><code class="language-text">.all() on 50,000 rows:        peak memory   68.2 MB
+yield_per=1000, same rows:    peak memory    2.5 MB</code></pre>
+      </figure>
+      <figure class="codeblock">
+        <figcaption class="code-label">one execution option</figcaption>
+        <pre><code class="language-python">for line in session.scalars(select(LogLine).execution_options(yield_per=1000)):
+    process(line)     # objects exist 1000 at a time, then get released</code></pre>
+      </figure>
+      <p>
+        <code>yield_per</code> combines a server-side cursor (PostgreSQL holds
+        the result, sending batches) with batched ORM construction. Two caveats:
+        the connection stays busy until you finish iterating, and it can't be
+        combined with collection eager loading (<code>selectinload</code> needs
+        the full parent set — use it on bounded queries instead).
+      </p>
+
+      <h2>Choosing the layer, one more time</h2>
+      <table>
+        <thead><tr><th>Workload</th><th>Right tool</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Business logic on a few entities</td><td>ORM objects</td><td>Identity, cascades, unit of work earn their cost</td></tr>
+          <tr><td>Report / API listing</td><td><code>select(cols)</code>, rows</td><td>No identity map churn, no object construction</td></tr>
+          <tr><td>Bulk write</td><td>Core <code>insert()</code> + dict lists</td><td>insertmanyvalues batching, no per-object overhead</td></tr>
+          <tr><td>Bulk mutate</td><td><code>update()/delete()</code> with WHERE</td><td>One statement replaces N load-modify-saves</td></tr>
+          <tr><td>Unbounded read</td><td><code>yield_per</code> / <code>stream()</code></td><td>Constant memory</td></tr>
+        </tbody>
+      </table>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          Beware the accidental object count: <code>session.scalars(select(Order))
+          .all()</code> on 100k rows builds 100k tracked Python objects — the
+          identity map holds them all, change-tracking watches them all, and
+          your memory graph looks like a cliff. If you're not going to
+          <em>mutate</em> them, you didn't need tracked objects. This single
+          habit — selecting entities when columns would do — is the most common
+          ORM performance sin after N+1.
+        </p>
+      </aside>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          When a query is slow <em>in the database</em> (not in Python), no
+          SQLAlchemy knob helps — get the real SQL from echo, run
+          <code>EXPLAIN ANALYZE</code> on it, and fix the index or the query
+          shape. SQLAlchemy's contribution is that the SQL it emits is plain,
+          predictable, and copy-pasteable into <code>psql</code> — use that.
+          PostgreSQL's <code>pg_stat_statements</code> extension is the
+          server-side complement to the client-side logging above.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run: <code>uv run examples/ch11/01_bulk_inserts.py</code> (feel the
+          100×), <code>02_streaming.py</code>, <code>03_pool_monitoring.py</code>.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch11</code> — you're handed
+          <code>naive_report()</code>, a correct N+1 disaster, as an oracle.
+          Reimplement it under a counted budget of 2 SELECTs, plus a
+          2-statement bulk loader. The tests count every statement you emit.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch10.html"><span class="dir">← Previous</span>Testing</a>
+        <a class="next" href="ch12.html"><span class="dir">Next →</span>FastAPI integration</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

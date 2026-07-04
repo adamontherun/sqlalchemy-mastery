@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 12 · FastAPI integration — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html" class="current"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 12 · Part IV — Production</p>
+      <h1>FastAPI integration</h1>
+      <p class="lede">
+        The finale assembles everything: one engine per app (ch2), one session per
+        request (ch5), eager loading for serialization (ch7), async rules honored
+        (ch8). A complete working service lives in
+        <code>examples/ch12/bookmarks_api.py</code> — this chapter walks its
+        four load-bearing walls.
+      </p>
+
+      <h2>Wall 1: the engine lives in lifespan</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch12/bookmarks_api.py — abridged</figcaption>
+        <pre><code class="language-python">@asynccontextmanager
+async def lifespan(app: FastAPI):
+    engine = create_async_engine(DATABASE_URL, pool_size=10, pool_pre_ping=True)
+    app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    yield
+    await engine.dispose()          # ch08's rule, honored at shutdown
+
+app = FastAPI(lifespan=lifespan)</code></pre>
+      </figure>
+      <p>
+        Built once at startup, disposed once at shutdown — the Chapter 2 rule in
+        FastAPI clothing. Creating the engine at import time works until the day
+        something imports your module from a different event loop (a test
+        runner, a worker); lifespan makes the lifecycle explicit and
+        loop-correct. Schema creation in lifespan is demo convenience — real
+        deployments run <code>alembic upgrade head</code> as a release step
+        (Chapter 9).
+      </p>
+
+      <h2>Wall 2: session-per-request, as a dependency</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">the dependency every handler shares</figcaption>
+        <pre><code class="language-python">async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
+    factory = request.app.state.session_factory
+    async with factory() as session:
+        try:
+            yield session           # the endpoint runs here
+            await session.commit()  # success -> commit
+        except Exception:
+            await session.rollback()
+            raise
+
+SessionDep = Annotated[AsyncSession, Depends(get_session)]</code></pre>
+      </figure>
+      <p>
+        This is Chapter 5's "sessions are created at the operation boundary and
+        passed in," where the operation is an HTTP request and the passing is
+        <code>Depends</code>. FastAPI caches dependencies per request, so every
+        layer that asks for <code>SessionDep</code> — handler, service,
+        repository — shares one session and therefore one transaction. Commit
+        happens in exactly one place; endpoints never call
+        <code>commit()</code> themselves (they may <code>flush()</code> to get
+        generated ids — flush ≠ commit, Chapter 5).
+      </p>
+
+      <h2>Wall 3: serialization happens after the session closes</h2>
+      <p>
+        The subtle one. Your handler returns an ORM object; FastAPI/Pydantic
+        serializes it <em>after</em> the dependency generator finished — session
+        closed, transaction committed. Two Chapter 8 traps are armed at exactly
+        that moment:
+      </p>
+      <ul>
+        <li>If attributes expired at commit → reload attempt outside the
+          session → <code>MissingGreenlet</code> / <code>DetachedInstanceError</code>.
+          Hence <code>expire_on_commit=False</code> in the factory —
+          non-negotiable in this architecture.</li>
+        <li>If the response model includes a relationship that wasn't loaded →
+          lazy-load attempt → same explosion. Hence: <strong>whatever the
+          response model needs, the query eager-loads</strong>:</li>
+      </ul>
+      <figure class="codeblock">
+        <figcaption class="code-label">the response model dictates the loader options</figcaption>
+        <pre><code class="language-python">@app.get("/bookmarks", response_model=list[BookmarkOut])   # includes tags
+async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
+    result = await session.scalars(
+        select(Bookmark)
+        .options(selectinload(Bookmark.tags))               # <- therefore
+        .order_by(Bookmark.created_at.desc())
+    )
+    return list(result)</code></pre>
+      </figure>
+
+      <h2>Wall 4: errors roll back — and the app keeps working</h2>
+      <p>
+        A unique-constraint violation shouldn't 500. The pattern: attempt the
+        <code>flush()</code>, catch <code>IntegrityError</code>, translate to a
+        semantic status code. The dependency's <code>except</code> branch
+        handles the rollback; the failed request leaves no debris, and the next
+        request gets a clean session from the pool. The chapter challenge tests
+        precisely this: a duplicate POST must 409 <em>and</em> the app must
+        keep answering afterwards.
+      </p>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          Sizing note that unifies chapters 2 and 8: each uvicorn worker process
+          has its own engine and pool. Four workers ×
+          (<code>pool_size=10</code> + <code>max_overflow</code>) can mean 60+
+          connections — check your PostgreSQL <code>max_connections</code>
+          (default 100) before the load test does. And the classic FastAPI
+          mistake worth repeating: a <code>def</code> endpoint (no async) doing
+          sync SQLAlchemy is fine — it runs in a threadpool. An
+          <code>async def</code> endpoint doing <em>sync</em> SQLAlchemy blocks
+          the event loop for everyone. Pick one stack per service and be
+          consistent.
+        </p>
+      </aside>
+
+      <h2>Where you are now</h2>
+      <p>
+        You can read a SQLAlchemy stack trace and know which layer produced it.
+        You know why the pool times out, why the Session flushes when it does,
+        what the async layer forbids and why, how schema change ships, and how
+        to test all of it without flakes. That's not "knows the API" — that's
+        the understanding that debugging at 3am requires. The
+        <a href="../../notes/research.md">research notes</a> collect the sources
+        this course distilled if you want to go deeper. Go build something.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run the service:
+          <code>uv run uvicorn bookmarks_api:app --app-dir examples/ch12 --port 8012</code>,
+          then poke it with the curl commands in the file's docstring — or open
+          <code>localhost:8012/docs</code> and use the generated UI.
+        </p>
+        <p>
+          Final challenge: <code>uv run pytest challenges/ch12</code> — build the
+          integration yourself: factory, dependency, three endpoints, a 409 that
+          rolls back cleanly, and eager loading that survives serialization.
+          Everything this book taught, in forty lines of yours.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch11.html"><span class="dir">← Previous</span>Performance</a>
+        <a class="next" href="../index.html"><span class="dir">Fin</span>Back to contents</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>
