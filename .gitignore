@@ -7,6 +7,7 @@ __pycache__/
 # Tooling
 .pytest_cache/
 .ruff_cache/
+.claude/scheduled_tasks.lock
 
 # OS
 .DS_Store

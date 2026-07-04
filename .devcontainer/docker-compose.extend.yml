@@ -1,0 +1,18 @@
+# Adds a dev-tooling service on top of the project's own compose.yaml,
+# purely for Codespaces/devcontainer use. Local development never touches
+# this file — `docker compose up -d` (per the README) only ever starts
+# `db`, exactly as before this file existed.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:1-3.13-bookworm
+    # Compose resolves relative volume paths against the project directory
+    # (wherever compose.yaml lives — the FIRST file in devcontainer.json's
+    # dockerComposeFile list), not against this file's own directory. "."
+    # here means the project root, which is what we actually want mounted.
+    volumes:
+      - .:/workspaces/sqlalchemy:cached
+    command: sleep infinity
+    depends_on:
+      db:
+        condition: service_healthy
+    network_mode: service:db

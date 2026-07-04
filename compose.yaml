@@ -6,12 +6,17 @@ services:
       POSTGRES_USER: course
       POSTGRES_PASSWORD: course
       POSTGRES_DB: course
+      # Listen on 5439 internally too (not just the host mapping below), so
+      # localhost:5439 works identically from the host, from a devcontainer
+      # sharing this container's network (see .devcontainer/), and from
+      # every example script in this course that hardcodes that URL.
+      PGPORT: 5439
     ports:
-      - "5439:5432"
+      - "5439:5439"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U course -d course"]
+      test: ["CMD-SHELL", "pg_isready -U course -d course -p 5439"]
       interval: 2s
       timeout: 3s
       retries: 15

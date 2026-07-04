@@ -3,14 +3,25 @@
 A hands-on course on modern SQLAlchemy (2.0-style API): sync, async, connections,
 querying, relationships, Alembic, testing, performance, and FastAPI integration.
 
+**[Read the book](https://adamontherun.github.io/sqlalchemy-mastery/)** · [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/adamontherun/sqlalchemy-mastery)
+
 ## The book
 
-Open **[book/index.html](book/index.html)** in your browser. It's a self-contained
-static HTML book: no build step, works offline, light and dark mode.
+Open **[book/index.html](book/index.html)** in your browser, or read the
+published copy above. It's a self-contained static HTML book: no build
+step, works offline, light and dark mode.
 
 ## Setup
 
-You need [Docker](https://docs.docker.com/get-docker/) and [uv](https://docs.astral.sh/uv/).
+Two ways to get a working environment:
+
+**GitHub Codespaces** — click the badge above. It opens a full dev
+environment with the exact same PostgreSQL 17 this course teaches against,
+already running. Once it's ready, run `uv sync` if it wasn't run for you
+automatically, then jump to "Running examples" below.
+
+**Locally** — you need [Docker](https://docs.docker.com/get-docker/) and
+[uv](https://docs.astral.sh/uv/):
 
 ```sh
 docker compose up -d   # starts PostgreSQL 17 on localhost:5439
