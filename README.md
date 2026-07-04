@@ -1,14 +1,24 @@
 # SQLAlchemy Mastery
 
-A hands-on course on modern SQLAlchemy (2.0-style API): sync, async, connections,
-querying, relationships, Alembic, testing, performance, and FastAPI integration.
+A free, hands-on micro-course on modern SQLAlchemy (2.0-style API) — engines,
+sessions, querying, async, Alembic, testing, performance, and a real FastAPI
+service, taught against a real PostgreSQL 17 database rather than a toy.
 
-**[Read the book](https://adamontherun.github.io/sqlalchemy-mastery/)** · [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/adamontherun/sqlalchemy-mastery)
+[![Read the Book](https://img.shields.io/badge/📖_Read_the_Book-adamontherun.github.io-c0392b)](https://adamontherun.github.io/sqlalchemy-mastery/)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/adamontherun/sqlalchemy-mastery)
 
-This repo is two things: **the book** (prose you read) and **the code** (examples
-and challenges you run). Reading needs nothing installed; running needs an
-environment. Every chapter in the book links to Codespaces directly, so you can
-jump from a page you're reading straight into a terminal with Postgres already up.
+This repo is two things: **the book** (12 chapters of prose, nothing to
+install) and **the code** (runnable examples and failing-test challenges,
+which need an environment). Every chapter in the book links straight back to
+Codespaces, so you're never more than one click from a terminal with Postgres
+already running.
+
+## What's covered
+
+- **Part I · Foundations** — engines, connection pools, querying with Core
+- **Part II · The ORM** — declarative models, the Session, querying, relationships
+- **Part III · Async** — `AsyncSession`, asyncpg, and every `MissingGreenlet` trap
+- **Part IV · Production** — Alembic migrations, testing, performance, FastAPI integration
 
 ## The book
 
