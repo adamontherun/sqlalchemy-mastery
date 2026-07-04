@@ -5,7 +5,6 @@ sessions, querying, async, Alembic, testing, performance, and a real FastAPI
 service, taught against a real PostgreSQL 17 database rather than a toy.
 
 [![Read the Book](https://img.shields.io/badge/📖_Read_the_Book-adamontherun.github.io-c0392b)](https://adamontherun.github.io/sqlalchemy-mastery/)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/adamontherun/sqlalchemy-mastery)
 
 This repo is two things: **the book** (12 chapters of prose, nothing to
 install) and **the code** (runnable examples and failing-test challenges,
@@ -19,15 +18,6 @@ already running.
 - **Part II · The ORM** — declarative models, the Session, querying, relationships
 - **Part III · Async** — `AsyncSession`, asyncpg, and every `MissingGreenlet` trap
 - **Part IV · Production** — Alembic migrations, testing, performance, FastAPI integration
-
-## The book
-
-Open **[book/index.html](book/index.html)** in your browser, or read the
-published copy above. It's a self-contained static HTML book: no build
-step, works offline, light and dark mode. It doesn't contain any of the
-runnable code itself — that lives in `examples/`, `challenges/`, and
-`solutions/` below, which is why you need one of the environments in
-"Setup" to actually run anything the book shows you.
 
 ## Setup
 
@@ -48,14 +38,6 @@ uv sync                # installs Python 3.13 + all dependencies
 
 The database is `postgresql://course:course@localhost:5439/course`. Port **5439**
 is used on the host so it never collides with a locally installed Postgres.
-
-## Running examples
-
-Every chapter has runnable scripts under `examples/`:
-
-```sh
-uv run examples/ch02/01_first_connection.py
-```
 
 ## Doing challenges
 
