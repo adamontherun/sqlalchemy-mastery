@@ -21,14 +21,13 @@ already running.
 
 ## Setup
 
-Two ways to get a working environment:
-
-**GitHub Codespaces** — click the badge above. It opens a full dev
+Don't want to install anything? Open
+[the book](https://adamontherun.github.io/sqlalchemy-mastery/) and click
+"Launch Codespace" in any chapter's sidebar — it opens a cloud dev
 environment with the exact same PostgreSQL 17 this course teaches against,
-already running. Once it's ready, run `uv sync` if it wasn't run for you
-automatically, then jump to "Running examples" below.
+already running.
 
-**Locally** — you need [Docker](https://docs.docker.com/get-docker/) and
+To run locally, you need [Docker](https://docs.docker.com/get-docker/) and
 [uv](https://docs.astral.sh/uv/):
 
 ```sh
