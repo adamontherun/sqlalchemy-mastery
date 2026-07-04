@@ -1,0 +1,34 @@
+# SQLAlchemy Mastery
+
+> A free, hands-on micro-course on modern SQLAlchemy (2.0-style API) — engines, sessions, querying, async, Alembic, testing, performance, and a real FastAPI service, taught against a real PostgreSQL 17 database rather than a toy.
+
+This is a hand-crafted HTML book (no build step, no JS framework) paired with runnable example scripts and test-driven challenges in the source repo. Every claim about SQLAlchemy behavior is checked against the official docs; every code example is actually run, never fabricated. Targets SQLAlchemy 2.0 (the current stable line as of writing), with callouts noting what changes in 2.1.
+
+## Part I · Foundations
+
+- [The lay of the land](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch01.html): What SQLAlchemy is, Core vs ORM, and why old tutorials will mislead you
+- [Engines & connections](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch02.html): create_engine, transactions, and the connection pool that will page you at 3am
+- [Querying with Core](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch03.html): Tables, select(), and the SQL expression language beneath everything
+
+## Part II · The ORM
+
+- [Declarative models](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch04.html): Mapped[], mapped_column, types, and the naming convention that saves Alembic
+- [The Session](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch05.html): The unit of work, the identity map, flush vs commit, and expire_on_commit
+- [Querying with the ORM](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch06.html): select() with entities, scalars(), joins, aggregates, and upserts
+- [Relationships](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch07.html): One-to-many, many-to-many, loader strategies, and hunting the N+1 problem
+
+## Part III · Async
+
+- [Async SQLAlchemy](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch08.html): Greenlets, AsyncSession, asyncpg, and every MissingGreenlet trap catalogued
+
+## Part IV · Production
+
+- [Migrations with Alembic](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch09.html): Autogenerate, its blind spots, and migration hygiene for teams
+- [Testing](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch10.html): Rollback-per-test fixtures, savepoints, and async test setups that don't flake
+- [Performance](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch11.html): Reading the SQL echo, bulk operations, streaming, and pool monitoring
+- [FastAPI integration](https://adamontherun.github.io/sqlalchemy-mastery/chapters/ch12.html): Lifespan engines, session-per-request, and a complete async CRUD service
+
+## Optional
+
+- [Source repo](https://github.com/adamontherun/sqlalchemy-mastery): runnable examples, failing-test challenges, reference solutions, and a devcontainer with Postgres already configured
+- [Open in GitHub Codespaces](https://codespaces.new/adamontherun/sqlalchemy-mastery): zero-install environment with the same PostgreSQL 17 this course teaches against, already running
