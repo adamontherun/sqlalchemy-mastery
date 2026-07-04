@@ -144,6 +144,33 @@ body {
   margin: 0 0 1.5rem;
 }
 
+.sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0 0 1.5rem;
+}
+.sidebar-links a {
+  display: block;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.sidebar-links .codespace-link {
+  background: var(--brand);
+  color: #fff;
+}
+.sidebar-links .codespace-link:hover { opacity: 0.88; }
+.sidebar-links .repo-link {
+  color: var(--ink-soft);
+  border-color: var(--rule);
+}
+.sidebar-links .repo-link:hover { color: var(--ink); border-color: var(--ink-faint); }
+
 .sidebar nav { margin-top: 0.5rem; }
 .sidebar .part-label {
   margin: 1.4rem 0 0.4rem;
@@ -398,6 +425,13 @@ code {
 }
 .tryit p { font-size: 0.95em; }
 .tryit code { background: var(--bg-raised); }
+.tryit-env {
+  margin: 0 0 0.9rem !important;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px dashed var(--rule);
+  color: var(--ink-soft);
+  font-size: 0.85em !important;
+}
 
 /* ---------- chapter navigation ---------- */
 

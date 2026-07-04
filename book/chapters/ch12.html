@@ -13,6 +13,10 @@
   <aside class="sidebar">
     <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
     <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <div class="sidebar-links">
+      <a class="codespace-link" href="https://codespaces.new/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="https://github.com/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
     <nav aria-label="Chapters">
       <p class="part-label">Part I · Foundations</p>
       <ol>
@@ -169,6 +173,9 @@ async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
 
       <div class="tryit">
         <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="https://codespaces.new/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — Postgres is already running there.
+        </p>
         <p>
           Run the service:
           <code>uv run uvicorn bookmarks_api:app --app-dir examples/ch12 --port 8012</code>,

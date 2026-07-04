@@ -13,6 +13,10 @@
   <aside class="sidebar">
     <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
     <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <div class="sidebar-links">
+      <a class="codespace-link" href="https://codespaces.new/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="https://github.com/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
     <nav aria-label="Chapters">
       <p class="part-label">Part I · Foundations</p>
       <ol>
@@ -210,6 +214,9 @@ await session.refresh(author, ["books"])</code></pre>
 
       <div class="tryit">
         <h3>⚡ Try it</h3>
+        <p class="tryit-env">
+          No local setup? <a href="https://codespaces.new/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">Open this chapter in GitHub Codespaces</a> — Postgres is already running there.
+        </p>
         <p>
           Run: <code>uv run examples/ch08/01_async_basics.py</code>,
           <code>02_missing_greenlet.py</code> (meet the exception safely),

@@ -5,11 +5,19 @@ querying, relationships, Alembic, testing, performance, and FastAPI integration.
 
 **[Read the book](https://adamontherun.github.io/sqlalchemy-mastery/)** · [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/adamontherun/sqlalchemy-mastery)
 
+This repo is two things: **the book** (prose you read) and **the code** (examples
+and challenges you run). Reading needs nothing installed; running needs an
+environment. Every chapter in the book links to Codespaces directly, so you can
+jump from a page you're reading straight into a terminal with Postgres already up.
+
 ## The book
 
 Open **[book/index.html](book/index.html)** in your browser, or read the
 published copy above. It's a self-contained static HTML book: no build
-step, works offline, light and dark mode.
+step, works offline, light and dark mode. It doesn't contain any of the
+runnable code itself — that lives in `examples/`, `challenges/`, and
+`solutions/` below, which is why you need one of the environments in
+"Setup" to actually run anything the book shows you.
 
 ## Setup
 

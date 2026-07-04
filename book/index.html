@@ -14,6 +14,10 @@
   <aside class="sidebar">
     <a class="brand" href="index.html">SQLAlchemy <span class="accent">Mastery</span></a>
     <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <div class="sidebar-links">
+      <a class="codespace-link" href="https://codespaces.new/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">&#9654; Launch Codespace</a>
+      <a class="repo-link" href="https://github.com/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">GitHub repo &#8599;</a>
+    </div>
 
     <nav aria-label="Chapters">
       <p class="part-label">Part I · Foundations</p>
@@ -60,8 +64,11 @@
       <p>
         Every chapter pairs with <strong>runnable examples</strong> and a
         <strong>challenge with failing tests</strong> for you to make pass, all
-        against a real PostgreSQL 17 running in Docker. Start with
-        <code>docker compose up -d &amp;&amp; uv sync</code>, then read on.
+        against a real PostgreSQL 17. Two ways to get that environment: click
+        <a href="https://codespaces.new/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener"><strong>Launch Codespace</strong></a>
+        in the sidebar for a ready-to-go cloud dev environment with Postgres already
+        running, or clone the <a href="https://github.com/adamontherun/sqlalchemy-mastery" target="_blank" rel="noopener">repo</a>
+        and run <code>docker compose up -d &amp;&amp; uv sync</code> locally.
       </p>
 
       <div class="toc-parts">
