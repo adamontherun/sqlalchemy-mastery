@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQLAlchemy Mastery — a field guide to modern SQLAlchemy</title>
+<meta name="description" content="A hands-on book about modern SQLAlchemy 2.0: engines, sessions, querying, async, Alembic, testing, performance, and FastAPI.">
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="chapters/ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="chapters/ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="chapters/ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="chapters/ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="chapters/ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="chapters/ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="chapters/ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="chapters/ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="chapters/ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="chapters/ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="chapters/ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="chapters/ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article class="cover">
+      <p class="kicker">A hands-on course</p>
+      <h1>SQLAlchemy <em style="color:var(--brand);font-style:normal">Mastery</em></h1>
+      <p class="lede">
+        The database toolkit that runs half the Python world, explained properly:
+        engines and connection pools, the Session and its unit of work, querying that
+        maps cleanly onto the SQL you already know, the async layer and its sharp
+        edges, and how it all fits into a real FastAPI service.
+      </p>
+      <p>
+        Every chapter pairs with <strong>runnable examples</strong> and a
+        <strong>challenge with failing tests</strong> for you to make pass — all
+        against a real PostgreSQL 17 running in Docker. Start with
+        <code>docker compose up -d &amp;&amp; uv sync</code>, then read on.
+      </p>
+
+      <div class="toc-parts">
+        <section class="toc-part">
+          <h2>Part I · Foundations</h2>
+          <ol>
+            <li><a href="chapters/ch01.html"><span class="ch-num">1</span><span><span class="ch-title">The lay of the land</span><span class="ch-desc">What SQLAlchemy is, Core vs ORM, and why old tutorials will mislead you</span></span></a></li>
+            <li><a href="chapters/ch02.html"><span class="ch-num">2</span><span><span class="ch-title">Engines &amp; connections</span><span class="ch-desc">create_engine, transactions, and the connection pool that will page you at 3am</span></span></a></li>
+            <li><a href="chapters/ch03.html"><span class="ch-num">3</span><span><span class="ch-title">Querying with Core</span><span class="ch-desc">Tables, select(), and the SQL expression language beneath everything</span></span></a></li>
+          </ol>
+        </section>
+        <section class="toc-part">
+          <h2>Part II · The ORM</h2>
+          <ol>
+            <li><a href="chapters/ch04.html"><span class="ch-num">4</span><span><span class="ch-title">Declarative models</span><span class="ch-desc">Mapped[], mapped_column, types, and the naming convention that saves Alembic</span></span></a></li>
+            <li><a href="chapters/ch05.html"><span class="ch-num">5</span><span><span class="ch-title">The Session</span><span class="ch-desc">The unit of work, the identity map, flush vs commit, and expire_on_commit</span></span></a></li>
+            <li><a href="chapters/ch06.html"><span class="ch-num">6</span><span><span class="ch-title">Querying with the ORM</span><span class="ch-desc">select() with entities, scalars(), joins, aggregates, and upserts</span></span></a></li>
+            <li><a href="chapters/ch07.html"><span class="ch-num">7</span><span><span class="ch-title">Relationships</span><span class="ch-desc">One-to-many, many-to-many, loader strategies, and hunting the N+1 problem</span></span></a></li>
+          </ol>
+        </section>
+        <section class="toc-part">
+          <h2>Part III · Async</h2>
+          <ol>
+            <li><a href="chapters/ch08.html"><span class="ch-num">8</span><span><span class="ch-title">Async SQLAlchemy</span><span class="ch-desc">Greenlets, AsyncSession, asyncpg, and every MissingGreenlet trap catalogued</span></span></a></li>
+          </ol>
+        </section>
+        <section class="toc-part">
+          <h2>Part IV · Production</h2>
+          <ol>
+            <li><a href="chapters/ch09.html"><span class="ch-num">9</span><span><span class="ch-title">Migrations with Alembic</span><span class="ch-desc">Autogenerate, its blind spots, and migration hygiene for teams</span></span></a></li>
+            <li><a href="chapters/ch10.html"><span class="ch-num">10</span><span><span class="ch-title">Testing</span><span class="ch-desc">Rollback-per-test fixtures, savepoints, and async test setups that don't flake</span></span></a></li>
+            <li><a href="chapters/ch11.html"><span class="ch-num">11</span><span><span class="ch-title">Performance</span><span class="ch-desc">Reading the SQL echo, bulk operations, streaming, and pool monitoring</span></span></a></li>
+            <li><a href="chapters/ch12.html"><span class="ch-num">12</span><span><span class="ch-title">FastAPI integration</span><span class="ch-desc">Lifespan engines, session-per-request, and a complete async CRUD service</span></span></a></li>
+          </ol>
+        </section>
+      </div>
+    </article>
+  </main>
+</div>
+<script src="assets/vendor/highlight.min.js"></script>
+<script src="assets/book.js"></script>
+</body>
+</html>
