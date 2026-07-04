@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 8 · Async SQLAlchemy — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html" class="current"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 8 · Part III — Async</p>
+      <h1>Async SQLAlchemy</h1>
+      <p class="lede">
+        Everything you've learned — engines, sessions, select(), loader options —
+        survives intact; you mostly add <code>await</code>. What changes is one
+        deep rule: <strong>no implicit IO, ever</strong>. This chapter explains
+        where that rule comes from and catalogs every place it bites.
+      </p>
+
+      <h2>How it works: greenlets all the way down</h2>
+      <p>
+        SQLAlchemy's internals — the unit of work, the compiler, a decade of
+        battle-tested machinery — are synchronous code. Rather than maintain a
+        parallel async rewrite, SQLAlchemy runs that sync machinery inside a
+        <strong>greenlet</strong> (a coroutine-like construct that can be paused
+        from anywhere), and when the code reaches the point of actual database IO,
+        it context-switches out to the event loop, awaits the truly-async driver
+        (<code>asyncpg</code>), and switches back. Your <code>await
+        session.execute(...)</code> is: hop into a greenlet, run the familiar sync
+        path, surface each driver call as a real awaitable.
+      </p>
+      <p>
+        This buys perfect API symmetry with a catch: the escape hatch only exists
+        <em>inside</em> that greenlet bridge. Any code path that tries to do
+        database IO <em>outside</em> it — like a lazy load triggered by innocent
+        attribute access — cannot await anything, and raises the exception this
+        chapter is really about:
+      </p>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">the error you WILL meet</figcaption>
+        <pre><code class="language-text">sqlalchemy.exc.MissingGreenlet: greenlet_spawn has not been called;
+can't call await_only() here. Was IO attempted in an unexpected place?</code></pre>
+      </figure>
+
+      <aside class="callout watch21">
+        <span class="callout-title">⏭ 2.1 watch</span>
+        <p>
+          In 2.1 <code>greenlet</code> stops installing automatically — you opt in
+          with <code>pip install "sqlalchemy[asyncio]"</code>. Recent 2.0.x
+          releases already skip it on some platforms (this course's own
+          <code>pyproject.toml</code> hit exactly that and uses the extra).
+          Write the extra into your dependencies today and the upgrade is a
+          non-event.
+        </p>
+      </aside>
+
+      <h2>The async vocabulary</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch08/01_async_basics.py — abridged</figcaption>
+        <pre><code class="language-python">from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+engine = create_async_engine("postgresql+asyncpg://course:course@localhost:5439/course")
+
+async with engine.begin() as conn:
+    await conn.run_sync(Base.metadata.create_all)   # sync-only machinery, bridged
+
+factory = async_sessionmaker(engine, expire_on_commit=False)
+
+async with factory() as session:
+    session.add(Quote(text="...", author="..."))    # no await — no IO!
+    await session.commit()                          # await — IO
+
+    result = await session.scalars(select(Quote))   # same select() as always
+
+await engine.dispose()                              # ALWAYS, at shutdown</code></pre>
+      </figure>
+      <p>
+        Note the precision of the <code>await</code>s: <code>session.add()</code>
+        isn't awaited (Chapter 5 taught you it's pure bookkeeping);
+        <code>commit()</code>, <code>scalars()</code>, <code>refresh()</code> are.
+        The async API is an honest map of where IO actually happens — which is
+        why learning the sync rhythm first was the right order. The pool is an
+        <code>AsyncAdaptedQueuePool</code>, automatically — all of Chapter 2's
+        sizing math still applies.
+      </p>
+
+      <h2>The gotcha catalog</h2>
+      <p><code>examples/ch08/02_missing_greenlet.py</code> triggers each of these
+        on purpose. Run it; the errors are better teachers in person.</p>
+
+      <h3>1. Lazy loads</h3>
+      <figure class="codeblock">
+        <figcaption class="code-label">the trap and the three exits</figcaption>
+        <pre><code class="language-python">author = (await session.scalars(select(Author))).one()
+author.books                     # 💥 MissingGreenlet — hidden IO
+
+# exit A (usually best): eager-load in the query — ch07 knowledge, unchanged
+select(Author).options(selectinload(Author.books))
+
+# exit B: AsyncAttrs on your Base, then IO is explicit and awaited
+class Base(AsyncAttrs, DeclarativeBase): ...
+books = await author.awaitable_attrs.books
+
+# exit C: targeted refresh
+await session.refresh(author, ["books"])</code></pre>
+      </figure>
+      <p>
+        Notice the philosophical inversion: in sync land, the N+1 problem
+        (Chapter 7) was <em>silent</em> — everything worked, slowly. Async
+        SQLAlchemy makes hidden IO <em>impossible</em> instead. It's the
+        <code>raiseload("*")</code> discipline, enforced by physics. Annoying on
+        day one; the correct default forever after.
+      </p>
+
+      <h3>2. expire_on_commit — again, and now it matters</h3>
+      <p>
+        Chapter 5 planted this flag: after <code>commit()</code>, every attribute
+        is expired and the next access reloads. Reload = IO = greenlet error. So
+        touching <code>obj.anything</code> after an async commit — even a plain
+        column — explodes:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">the standard configuration, not a preference</figcaption>
+        <pre><code class="language-python">factory = async_sessionmaker(engine, expire_on_commit=False)</code></pre>
+      </figure>
+      <p>
+        Every credible async example — including SQLAlchemy's own docs — sets
+        this. Treat it as part of the <code>async_sessionmaker</code> incantation.
+      </p>
+
+      <h3>3. One session per task, one engine per event loop</h3>
+      <ul>
+        <li>An <code>AsyncSession</code> is a single-task creature. For
+          <code>asyncio.gather()</code> fan-out, each task opens its own session
+          from the shared factory — <code>examples/ch08/03_concurrency.py</code>
+          runs 8 workers over a 5-connection pool to show the pattern (and that
+          the pool queues gracefully).</li>
+        <li>An <code>AsyncEngine</code> is bound to the event loop its connections
+          were created on. Don't create it at import time in one loop and use it
+          in another (a classic pytest bug — Chapter 10); call
+          <code>await engine.dispose()</code> before crossing loops, and always
+          at shutdown — otherwise garbage collection prints
+          <code>RuntimeError: Event loop is closed</code> at exit.</li>
+      </ul>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          <strong>asyncpg + pgbouncer</strong> (transaction mode) is a notorious
+          pairing: asyncpg caches prepared statements per connection, but
+          pgbouncer hands "your" connection to someone else between transactions
+          — result: <code>DuplicatePreparedStatementError</code> at 2am. If you
+          must run through pgbouncer, disable <em>both</em> caches in
+          <code>connect_args</code>: <code>statement_cache_size=0</code>
+          <em>and</em> <code>prepared_statement_cache_size=0</code> (guides that
+          mention only the first reduce the error rate without eliminating it).
+          Cleaner: point SQLAlchemy at PostgreSQL directly with
+          <code>NullPool</code>-free normal pooling, and let pgbouncer serve the
+          clients that need it.
+        </p>
+      </aside>
+
+      <h2>Do you even need async?</h2>
+      <p>
+        An honest aside before Part IV: async shines when your service holds
+        <em>many concurrent</em> requests that spend their time waiting — on the
+        database, on other APIs. A background job, a CLI, a low-traffic admin
+        app gains nothing but complexity. Sync SQLAlchemy with a properly sized
+        pool is boring, fast, and immune to every gotcha in this chapter. Choose
+        async because your workload is concurrent-IO-bound, not because it's
+        modern. (FastAPI handles sync endpoints in a threadpool just fine.)
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run: <code>uv run examples/ch08/01_async_basics.py</code>,
+          <code>02_missing_greenlet.py</code> (meet the exception safely),
+          <code>03_concurrency.py</code>.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch08</code> — async playlist
+          CRUD where the tests read relationships after your session closes and
+          commit-then-read on purpose. Every trap in this chapter, armed.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch07.html"><span class="dir">← Previous</span>Relationships</a>
+        <a class="next" href="ch09.html"><span class="dir">Next →</span>Migrations with Alembic</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>
