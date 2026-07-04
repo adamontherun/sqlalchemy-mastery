@@ -49,7 +49,7 @@
       <p class="kicker">Chapter 11 · Part IV — Production</p>
       <h1>Performance</h1>
       <p class="lede">
-        Slow SQLAlchemy is almost never SQLAlchemy being slow — it's your code
+        Slow SQLAlchemy is almost never SQLAlchemy being slow. It's your code
         asking for the wrong shape of work: too many round-trips, too many
         transactions, too many objects. Every fix in this chapter is about
         changing the shape.
@@ -68,8 +68,8 @@
   Core insert() executemany                  0.08s</code></pre>
       </figure>
       <p>
-        A <strong>100× difference</strong>, and no index or hardware was involved.
-        The per-row version pays a full transaction — including the WAL fsync —
+        A 100× difference, and no index or hardware was involved.
+        The per-row version pays a full transaction, including the WAL fsync,
         five thousand times. The lesson generalizes: batch your work, commit
         once per logical operation, and if the rows are just data (no identity,
         no behavior), skip building ORM objects entirely and hand
@@ -77,28 +77,28 @@
       </p>
 
       <h2>Finding the waste: read what you emit</h2>
-      <ul>
-        <li><code>create_engine(echo=True)</code> in development — then actually
-          read it. N+1 patterns (Chapter 7) are unmissable once seen: the same
-          SELECT with different parameters, over and over.</li>
-        <li>The echo shows <code>[cached since ...]</code> on repeated statement
-          shapes — 2.0's compiled-statement cache at work. It's why building the
-          same <code>select()</code> in a loop is cheaper than it looks, and why
-          wildly dynamic query construction is more expensive than it looks.</li>
-        <li>In production, use the logging module
-          (<code>sqlalchemy.engine</code> logger) or better, the two-event
-          slow-query logger from <code>examples/ch11/03_pool_monitoring.py</code>:
-          <code>before_cursor_execute</code> stamps a start time,
-          <code>after_cursor_execute</code> reports anything over threshold.</li>
-        <li>Export <code>engine.pool.status()</code> numbers as metrics. A
-          checked-out count pinned at pool max is the leak signature from
-          Chapter 2, visible <em>before</em> the TimeoutErrors start.</li>
-      </ul>
+      <p>
+        Turn on <code>create_engine(echo=True)</code> in development, then
+        actually read it. N+1 patterns (Chapter 7) are unmissable once seen: the
+        same SELECT with different parameters, over and over. The echo also
+        shows <code>[cached since ...]</code> on repeated statement shapes,
+        2.0's compiled-statement cache at work. It's why building the same
+        <code>select()</code> in a loop is cheaper than it looks, and why wildly
+        dynamic query construction is more expensive than it looks. In
+        production, use the logging module (<code>sqlalchemy.engine</code>
+        logger) or better, the two-event slow-query logger from
+        <code>examples/ch11/03_pool_monitoring.py</code>:
+        <code>before_cursor_execute</code> stamps a start time and
+        <code>after_cursor_execute</code> reports anything over threshold. And
+        export <code>engine.pool.status()</code> numbers as metrics: a
+        checked-out count pinned at pool max is the leak signature from
+        Chapter 2, visible <em>before</em> the TimeoutErrors start.
+      </p>
 
       <h2>Streaming: constant memory for unbounded rows</h2>
       <p>
         <code>.all()</code> materializes every row and every ORM object at once.
-        For exports, ETL, and reports, stream instead —
+        For exports, ETL, and reports, stream instead.
         <code>examples/ch11/02_streaming.py</code> measures 50,000 rows:
       </p>
       <figure class="codeblock sql-echo">
@@ -116,7 +116,7 @@ yield_per=1000, same rows:    peak memory    2.5 MB</code></pre>
         the result, sending batches) with batched ORM construction. Two caveats:
         the connection stays busy until you finish iterating, and it can't be
         combined with collection eager loading (<code>selectinload</code> needs
-        the full parent set — use it on bounded queries instead).
+        the full parent set, so use it on bounded queries instead).
       </p>
 
       <h2>Choosing the layer, one more time</h2>
@@ -135,11 +135,11 @@ yield_per=1000, same rows:    peak memory    2.5 MB</code></pre>
         <span class="callout-title">⚠ Gotcha</span>
         <p>
           Beware the accidental object count: <code>session.scalars(select(Order))
-          .all()</code> on 100k rows builds 100k tracked Python objects — the
+          .all()</code> on 100k rows builds 100k tracked Python objects. The
           identity map holds them all, change-tracking watches them all, and
           your memory graph looks like a cliff. If you're not going to
           <em>mutate</em> them, you didn't need tracked objects. This single
-          habit — selecting entities when columns would do — is the most common
+          habit, selecting entities when columns would do, is the most common
           ORM performance sin after N+1.
         </p>
       </aside>
@@ -148,10 +148,10 @@ yield_per=1000, same rows:    peak memory    2.5 MB</code></pre>
         <span class="callout-title">🏭 In production</span>
         <p>
           When a query is slow <em>in the database</em> (not in Python), no
-          SQLAlchemy knob helps — get the real SQL from echo, run
+          SQLAlchemy knob helps. Get the real SQL from echo, run
           <code>EXPLAIN ANALYZE</code> on it, and fix the index or the query
           shape. SQLAlchemy's contribution is that the SQL it emits is plain,
-          predictable, and copy-pasteable into <code>psql</code> — use that.
+          predictable, and copy-pasteable into <code>psql</code>, so use that.
           PostgreSQL's <code>pg_stat_statements</code> extension is the
           server-side complement to the client-side logging above.
         </p>
@@ -164,7 +164,7 @@ yield_per=1000, same rows:    peak memory    2.5 MB</code></pre>
           100×), <code>02_streaming.py</code>, <code>03_pool_monitoring.py</code>.
         </p>
         <p>
-          Challenge: <code>uv run pytest challenges/ch11</code> — you're handed
+          Challenge: <code>uv run pytest challenges/ch11</code>. You're handed
           <code>naive_report()</code>, a correct N+1 disaster, as an oracle.
           Reimplement it under a counted budget of 2 SELECTs, plus a
           2-statement bulk loader. The tests count every statement you emit.

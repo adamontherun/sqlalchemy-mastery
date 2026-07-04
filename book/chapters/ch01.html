@@ -49,15 +49,15 @@
       <p class="kicker">Chapter 1 · Part I — Foundations</p>
       <h1>The lay of the land</h1>
       <p class="lede">
-        SQLAlchemy is not an ORM. It <em>contains</em> one — a very good one — but
+        SQLAlchemy is not an ORM. It contains one, and a very good one, but
         thinking of it as "the Python ORM" is how people end up fighting it. This
         chapter builds the mental model everything else hangs off.
       </p>
 
       <h2>A toolkit, arranged in layers</h2>
       <p>
-        You already speak SQL. That's a real advantage here, because SQLAlchemy's
-        deepest design commitment is that <strong>it never hides SQL from you</strong>.
+        You already speak SQL, which is a real advantage here, because SQLAlchemy's
+        deepest design commitment is that it never hides SQL from you.
         Its own docs call the philosophy "SQLAlchemy considers the database to be a
         relational algebra engine, not just a collection of tables." Every layer of
         the library is a thin, inspectable translation of things you already know.
@@ -66,23 +66,23 @@
       <ol>
         <li>
           <strong>The DBAPI driver.</strong> A third-party package that actually talks
-          the wire protocol — for PostgreSQL in this course that's
+          the wire protocol. For PostgreSQL in this course that's
           <code>psycopg</code> (sync) and <code>asyncpg</code> (async). SQLAlchemy
           never sends a byte itself.
         </li>
         <li>
-          <strong>The dialect.</strong> SQLAlchemy's adapter for one database + driver
+          <strong>The dialect.</strong> SQLAlchemy's adapter for one database and driver
           combination. It knows that PostgreSQL spells string concatenation
           <code>||</code>, how <code>RETURNING</code> works, how to reflect a
           schema, and a hundred other quirks.
         </li>
         <li>
           <strong>The Engine and its connection pool.</strong> The factory for
-          database connections and the pool that recycles them. One per database,
+          database connections and the pool that recycles them, one per database,
           per process, for the life of your application. Chapter 2 is all about this.
         </li>
         <li>
-          <strong>Core — the SQL Expression Language.</strong> Python objects that
+          <strong>Core, the SQL Expression Language.</strong> Python objects that
           <em>are</em> SQL: <code>select()</code>, <code>insert()</code>,
           <code>Table</code>, <code>Column</code>. Composable, safely parameterized,
           database-agnostic where possible and database-specific where you want it.
@@ -101,20 +101,20 @@
           When you write <code>select(User).where(User.name == "adam")</code>, the
           <code>==</code> doesn't compare anything. <code>User.name</code> is an
           instrumented attribute that <em>overloads</em> <code>==</code> to return a
-          <code>BinaryExpression</code> — a node in a SQL syntax tree. The tree only
+          <code>BinaryExpression</code>, a node in a SQL syntax tree. The tree only
           becomes the string <code>SELECT ... WHERE users.name = %(name_1)s</code>
           when the dialect compiles it at execution time. You are writing SQL with
           Python operator overloading, not calling an API that generates SQL.
         </p>
       </aside>
 
-      <h2>Core or ORM — which do you use?</h2>
+      <h2>Core or ORM: which do you use?</h2>
       <p>
-        Both, usually. The honest answer for a modern application: define your schema
-        and everyday persistence with the <strong>ORM</strong>, and drop into
-        <strong>Core</strong> expressions freely for reporting queries, bulk
+        Both, usually. For a modern application, define your schema
+        and everyday persistence with the ORM, and drop into
+        Core expressions freely for reporting queries, bulk
         operations, and anything where you want rows rather than objects. Since 2.0,
-        this is one skill, not two — the same <code>select()</code> construct works
+        this is one skill, not two. The same <code>select()</code> construct works
         against tables and mapped classes alike, executed by a
         <code>Connection</code> (Core) or a <code>Session</code> (ORM).
       </p>
@@ -124,36 +124,35 @@
           <tr><td>Domain objects with identity and relationships</td><td>ORM · <code>Session</code></td></tr>
           <tr><td>Plain rows, aggregates, reports</td><td>Core · <code>Connection</code>, or ORM returning rows</td></tr>
           <tr><td>Bulk load of a million rows</td><td>Core <code>insert()</code> with parameter lists</td></tr>
-          <tr><td>One weird vendor-specific statement</td><td><code>text()</code> — hand-written SQL is a first-class citizen</td></tr>
+          <tr><td>One weird vendor-specific statement</td><td><code>text()</code>: hand-written SQL is a first-class citizen</td></tr>
         </tbody>
       </table>
 
       <h2>Why old tutorials will mislead you</h2>
       <p>
         SQLAlchemy is over twenty years old, and the internet is a sedimentary record
-        of every era. In 2023 the project landed <strong>2.0</strong>, the largest
+        of every era. In 2023 the project landed 2.0, the largest
         cleanup in its history, and the version this book targets (2.0.51 as of
         writing). If a tutorial shows any of the following, it's teaching you the
         1.x world:
       </p>
       <ul>
-        <li><code>session.query(User).filter_by(...)</code> — the legacy
+        <li><code>session.query(User).filter_by(...)</code>, the legacy
           <code>Query</code> API. Modern code writes
           <code>session.execute(select(User).where(...))</code> or the
           <code>session.scalars(...)</code> shorthand.</li>
-        <li><code>Base = declarative_base()</code> — replaced by
+        <li><code>Base = declarative_base()</code>, replaced by
           <code>class Base(DeclarativeBase)</code>, which type checkers understand.</li>
-        <li><code>Column("name", String(50))</code> in models — replaced by
+        <li><code>Column("name", String(50))</code> in models, replaced by
           <code>Mapped[str]</code> annotations with <code>mapped_column()</code>,
           giving you real static typing end to end.</li>
-        <li><code>engine.execute(...)</code> or bare string execution — implicit
-          "autocommit" connections are gone. Transactions are always explicit now.</li>
+        <li><code>engine.execute(...)</code> or bare string execution. Implicit
+          "autocommit" connections are gone; transactions are always explicit now.</li>
       </ul>
       <p>
         None of the old spellings make you faster; they just make your code look like
-        an archaeological dig. The 2.0 API is smaller, typed, and — crucially —
-        <em>identical in shape</em> between sync and async, which will pay off
-        enormously in Chapter 8.
+        an archaeological dig. The 2.0 API is smaller, typed, and identical in shape
+        between sync and async, which will pay off enormously in Chapter 8.
       </p>
 
       <aside class="callout watch21">
@@ -162,7 +161,7 @@
           SQLAlchemy 2.1 (in beta as this book is written) keeps the 2.0 API intact.
           Notable changes: <code>greenlet</code> stops installing automatically
           (async users install <code>sqlalchemy[asyncio]</code>), Python 3.10 becomes
-          the floor, and typed results drop the <code>Tuple</code> wrapper —
+          the floor, and typed results drop the <code>Tuple</code> wrapper:
           <code>Select[Tuple[int, str]]</code> becomes <code>Select[int, str]</code>.
           Everything you learn here carries over.
         </p>
@@ -170,7 +169,7 @@
 
       <h2>Your first round-trip</h2>
       <p>
-        Enough cartography. Here is the entire stack — driver, dialect, engine, Core —
+        Enough cartography. Here is the entire stack (driver, dialect, engine, Core)
         exercised in a dozen lines. This is
         <code>examples/ch01/01_hello_sqlalchemy.py</code> in the course repo:
       </p>
@@ -194,34 +193,34 @@ print(f"The database says 40 + 2 = {answer}")</code></pre>
       <p>Read it as a tour of the layers:</p>
       <ul>
         <li>The URL <code>postgresql+psycopg://…</code> names the
-          <strong>dialect</strong> (<code>postgresql</code>) and the
-          <strong>driver</strong> (<code>psycopg</code>) explicitly. Swap
-          <code>+psycopg</code> for <code>+asyncpg</code> and (with the async engine)
+          dialect (<code>postgresql</code>) and the
+          driver (<code>psycopg</code>) explicitly. Swap
+          <code>+psycopg</code> for <code>+asyncpg</code> and, with the async engine,
           the rest of your SQL knowledge transfers untouched.</li>
-        <li><code>create_engine()</code> builds the <strong>Engine</strong> — lazily.
+        <li><code>create_engine()</code> builds the Engine lazily.
           No connection happens until first use.</li>
         <li><code>engine.connect()</code> checks a connection out of the
-          <strong>pool</strong>; the <code>with</code> block returns it. Forgetting
-          this is the #1 way to exhaust a pool in production — Chapter 2 has the
+          pool; the <code>with</code> block returns it. Forgetting
+          this is the #1 way to exhaust a pool in production. Chapter 2 has the
           receipts.</li>
         <li><code>text()</code> wraps literal SQL, and <code>:a</code>/<code>:b</code>
-          are <strong>bound parameters</strong> — never f-strings. The driver sends
-          the values separately from the statement; SQL injection is structurally
+          are bound parameters, never f-strings. The driver sends
+          the values separately from the statement, so SQL injection is structurally
           impossible here.</li>
         <li><code>.scalar_one()</code> is the Result API insisting on exactly one row,
-          one column — it raises if the shape surprises you. Loud failure is a
+          one column. It raises if the shape surprises you. Loud failure is a
           recurring SQLAlchemy virtue.</li>
       </ul>
 
       <aside class="callout gotcha">
         <span class="callout-title">⚠ Gotcha</span>
         <p>
-          A plain <code>engine.connect()</code> block <strong>rolls back</strong>
+          A plain <code>engine.connect()</code> block rolls back
           anything you didn't commit. Run an <code>INSERT</code> inside it, exit the
-          block, and your row silently vanishes — the pool resets connections with a
+          block, and your row silently vanishes: the pool resets connections with a
           rollback on return. This bites almost everyone once. Chapter 2 covers the
-          two transaction patterns (<code>connect()</code> + explicit
-          <code>commit()</code>, vs <code>begin()</code>) that make intent explicit.
+          two transaction patterns (<code>connect()</code> plus explicit
+          <code>commit()</code>, versus <code>begin()</code>) that make intent explicit.
         </p>
       </aside>
 
@@ -233,8 +232,8 @@ print(f"The database says 40 + 2 = {answer}")</code></pre>
           <code>uv run examples/ch01/01_hello_sqlalchemy.py</code>.
         </p>
         <p>
-          Then take the chapter challenge: <code>uv run pytest challenges/ch01</code>
-          — edit <code>challenges/ch01/challenge.py</code> until the tests pass. It
+          Then take the chapter challenge: <code>uv run pytest challenges/ch01</code>,
+          and edit <code>challenges/ch01/challenge.py</code> until the tests pass. It
           asks you to build a URL with <code>URL.create()</code> and run a
           parameterized query, using only what you saw above.
         </p>

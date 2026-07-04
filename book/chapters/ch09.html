@@ -49,7 +49,7 @@
       <p class="kicker">Chapter 9 · Part IV — Production</p>
       <h1>Migrations with Alembic</h1>
       <p class="lede">
-        <code>create_all()</code> creates what's missing and alters nothing —
+        <code>create_all()</code> creates what's missing and alters nothing,
         fine for demos, useless once real data exists. Alembic (SQLAlchemy's
         sibling project) turns schema change into versioned, reviewable,
         reversible scripts.
@@ -57,23 +57,23 @@
 
       <h2>The mental model</h2>
       <p>
-        Your models are the <strong>desired state</strong>; the database is the
-        <strong>current state</strong>; a migration is a <strong>diff with a
-        direction</strong> — an <code>upgrade()</code> and (write it!) a
+        Your models are the desired state; the database is the
+        current state; a migration is a diff with a
+        direction: an <code>upgrade()</code> and (write it!) a
         <code>downgrade()</code>. Migrations form a chain of revisions, and the
         database remembers where it stands in a single-row table Alembic manages
         (<code>alembic_version</code>).
       </p>
       <p>
         A ready-to-explore project lives at
-        <code>examples/ch09/migration_project/</code> — models, config, and a
+        <code>examples/ch09/migration_project/</code>: models, config, and a
         two-revision history already generated. The daily loop looks like:
       </p>
       <figure class="codeblock">
         <figcaption class="code-label">the migration loop (run inside migration_project/)</figcaption>
         <pre><code class="language-bash">« edit models.py »
 uv run alembic revision --autogenerate -m "add word_count to documents"
-« READ the generated file — always »
+« READ the generated file, always »
 uv run alembic upgrade head
 
 # and the tools around it:
@@ -89,7 +89,7 @@ uv run alembic downgrade -1 # one step back</code></pre>
         <code>from models import Base; target_metadata = Base.metadata</code>.
       </p>
 
-      <h2>What autogenerate sees — and what it can't</h2>
+      <h2>What autogenerate sees, and what it can't</h2>
       <p>Autogenerate compares metadata to the live schema. It reliably detects
         added/removed tables and columns, nullability changes, and named
         indexes/uniques/FKs. Its blind spots are where migration discipline
@@ -99,13 +99,13 @@ uv run alembic downgrade -1 # one step back</code></pre>
         <tbody>
           <tr>
             <td><strong>Renamed</strong> table or column</td>
-            <td>Emits <code>drop</code> + <code>add</code> — <em>your data would vanish</em></td>
+            <td>Emits <code>drop</code> + <code>add</code>: <em>your data would vanish</em></td>
             <td>Rewrite as <code>op.alter_column(..., new_column_name=...)</code> / <code>op.rename_table(...)</code></td>
           </tr>
           <tr>
             <td>Unnamed constraints</td>
             <td>Can't track them at all</td>
-            <td>The ch04 naming convention — set it before your first migration</td>
+            <td>The ch04 naming convention: set it before your first migration</td>
           </tr>
           <tr>
             <td>CHECK constraints</td>
@@ -126,7 +126,7 @@ uv run alembic downgrade -1 # one step back</code></pre>
       </table>
       <p>
         The Alembic docs say it plainly: <em>"autogenerate is not intended to be
-        perfect"</em> — generated scripts are a draft for review, not a release
+        perfect"</em>. Generated scripts are a draft for review, not a release
         artifact. The rename case is the one that costs people data: a column
         rename reads as "drop column (with its contents), add empty column."
         Nothing in CI will catch that for you; reading the migration will.
@@ -136,42 +136,41 @@ uv run alembic downgrade -1 # one step back</code></pre>
         <span class="callout-title">⚠ Gotcha</span>
         <p>
           Adding a <code>NOT NULL</code> column to a table with existing rows
-          fails at <code>upgrade</code> time — existing rows have no value for
-          it. Ship it with <code>server_default=</code> (the example project's
+          fails at <code>upgrade</code> time, since existing rows have no value
+          for it. Ship it with <code>server_default=</code> (the example project's
           second migration adds <code>word_count</code> exactly this way), or
-          migrate in two steps: add nullable → backfill → set NOT NULL. On
+          migrate in two steps: add nullable, backfill, then set NOT NULL. On
           large, hot tables the two-step dance also avoids a long table lock.
         </p>
       </aside>
 
       <h2>Migration hygiene for teams</h2>
-      <ul>
-        <li><strong>Review migrations like code</strong> — they are code, run
-          exactly once, against the data you can least afford to lose.</li>
-        <li><strong>Write real downgrades</strong> — the discipline pays off the
-          first time a deploy needs rolling back at speed. The chapter challenge
-          enforces up-down-up cycling.</li>
-        <li><strong>One head per merge</strong> — parallel branches create two
-          "head" revisions; <code>alembic merge heads</code> reconciles them.
-          Put <code>alembic check</code> (fails if models drifted from
-          migrations) in CI and drift never reaches main.</li>
-        <li><strong>Migrations run at deploy, not import</strong> — a dedicated
-          release step (<code>alembic upgrade head</code>), never "on app
-          startup" in every replica at once (they'll race for the lock).</li>
-      </ul>
+      <p>
+        Review migrations like code: they are code, run exactly once, against
+        the data you can least afford to lose. Write real downgrades; the
+        discipline pays off the first time a deploy needs rolling back at
+        speed (the chapter challenge enforces up-down-up cycling). Aim for one
+        head per merge, since parallel branches create two "head" revisions
+        that <code>alembic merge heads</code> reconciles; put
+        <code>alembic check</code> (fails if models drifted from migrations)
+        in CI and drift never reaches main. And run migrations at deploy, not
+        import: a dedicated release step (<code>alembic upgrade head</code>),
+        never "on app startup" in every replica at once, or they'll race for
+        the lock.
+      </p>
 
       <aside class="callout production">
         <span class="callout-title">🏭 In production</span>
         <p>
-          <strong>Async apps still migrate sync-ishly.</strong> Alembic's
+          Async apps still migrate sync-ishly. Alembic's
           machinery is synchronous; for an asyncpg-only project,
           <code>alembic init -t async</code> generates an <code>env.py</code>
           that wraps the sync migration core in
           <code>connection.run_sync(...)</code> inside
-          <code>asyncio.run(...)</code> — the same greenlet bridge from
-          Chapter 8, pointed the other way. Simpler alternative many teams
-          choose: keep a sync <code>psycopg</code> URL just for migrations.
-          Either way use <code>NullPool</code> — a migration process needs one
+          <code>asyncio.run(...)</code>, the same greenlet bridge from
+          Chapter 8, pointed the other way. A simpler alternative many teams
+          choose is to keep a sync <code>psycopg</code> URL just for migrations.
+          Either way use <code>NullPool</code>: a migration process needs one
           connection for ten seconds, not a pool.
         </p>
       </aside>
@@ -186,7 +185,7 @@ uv run alembic downgrade -1 # one step back</code></pre>
           and <em>read the file</em> before upgrading.
         </p>
         <p>
-          Challenge: <code>uv run pytest challenges/ch09</code> — write
+          Challenge: <code>uv run pytest challenges/ch09</code>. Write
           <code>upgrade()</code>/<code>downgrade()</code> with op directives by
           hand against a live <code>Operations</code> object: named constraints,
           server defaults, and a stability test that cycles your migration twice.

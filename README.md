@@ -6,7 +6,7 @@ querying, relationships, Alembic, testing, performance, and FastAPI integration.
 ## The book
 
 Open **[book/index.html](book/index.html)** in your browser. It's a self-contained
-static HTML book — no build step, works offline, light and dark mode.
+static HTML book: no build step, works offline, light and dark mode.
 
 ## Setup
 
@@ -30,14 +30,14 @@ uv run examples/ch02/01_first_connection.py
 
 ## Doing challenges
 
-Every chapter has a challenge under `challenges/` — a skeleton file with failing
+Every chapter has a challenge under `challenges/`: a skeleton file with failing
 tests. Edit the skeleton until the tests pass:
 
 ```sh
 uv run pytest challenges/ch03
 ```
 
-Reference solutions live in `solutions/` — no peeking until the tests pass.
+Reference solutions live in `solutions/`. No peeking until the tests pass.
 
 ## Resetting the database
 

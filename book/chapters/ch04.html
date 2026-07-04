@@ -56,7 +56,7 @@
 
       <h2>The modern shape</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch04/01_first_model.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch04/01_first_model.py, abridged</figcaption>
         <pre><code class="language-python">from datetime import datetime
 from sqlalchemy import String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -78,23 +78,23 @@ class User(Base):
       <p>Three ideas carry the whole system:</p>
       <ul>
         <li>
-          <strong><code>Mapped[T]</code> declares the Python type</strong>, and
+          <code>Mapped[T]</code> declares the Python type, and
           SQLAlchemy derives the SQL type: <code>int</code> →
           <code>INTEGER</code>, <code>str</code> → <code>VARCHAR</code>,
           <code>datetime</code> → <code>TIMESTAMP</code>,
           <code>Decimal</code> → <code>NUMERIC</code>, an
           <code>enum.Enum</code> → a native PostgreSQL <code>ENUM</code>.
-          Crucially, <code>Mapped[str | None]</code> means <em>nullable</em> —
+          <code>Mapped[str | None]</code> means <em>nullable</em>, so
           your type checker and your schema now agree by construction.
         </li>
         <li>
-          <strong><code>mapped_column()</code> adds what annotations can't say</strong>:
+          <code>mapped_column()</code> adds what annotations can't say:
           lengths, uniqueness, indexes, defaults, constraints. When you have
           nothing to add, omit it entirely (see <code>nickname</code>).
         </li>
         <li>
-          <strong>Nothing new underneath</strong>: the class generates exactly the
-          <code>Table</code> you built by hand in Chapter 3 — it's right there at
+          Nothing new happens underneath: the class generates exactly the
+          <code>Table</code> you built by hand in Chapter 3. It's right there at
           <code>User.__table__</code>, and <code>Base.metadata</code> is the same
           <code>MetaData</code> you already know.
         </li>
@@ -105,7 +105,7 @@ class User(Base):
         <p>
           If you've seen <code>declarative_base()</code> (a function, not a class)
           or models built from bare <code>Column</code> attributes, that's 1.x
-          style — it still runs in 2.0, but it's untyped and slated for the
+          style. It still runs in 2.0, but it's untyped and slated for the
           history books. New code should always subclass
           <code>DeclarativeBase</code>; 2.1 continues to modernize around the
           annotation-driven mapping (dataclass integration gets particularly
@@ -122,7 +122,7 @@ created_at: Mapped[datetime] = mapped_column(server_default=func.now()) # server
       <p>
         <code>default=</code> is filled in <em>by SQLAlchemy</em> when your Python
         code inserts a row and didn't set the attribute. <code>server_default=</code>
-        goes into the <code>CREATE TABLE</code> itself — <code>DEFAULT now()</code> —
+        goes into the <code>CREATE TABLE</code> itself, as <code>DEFAULT now()</code>,
         so it applies to <em>every</em> insert, including ones from
         <code>psql</code>, cron jobs, and services that aren't yours. For data
         integrity facts like timestamps, prefer the server side. (There's also
@@ -132,7 +132,7 @@ created_at: Mapped[datetime] = mapped_column(server_default=func.now()) # server
       <aside class="callout gotcha">
         <span class="callout-title">⚠ Gotcha</span>
         <p>
-          <code>default=datetime.utcnow()</code> — with parentheses — is the
+          <code>default=datetime.utcnow()</code>, with parentheses, is the
           classic self-inflicted wound: it evaluates <em>once at import</em>, and
           every row gets the timestamp of your last deploy. Pass the function
           (<code>default=datetime.utcnow</code>), or better, use
@@ -140,16 +140,16 @@ created_at: Mapped[datetime] = mapped_column(server_default=func.now()) # server
         </p>
       </aside>
 
-      <h2>Constraints deserve names — here's the trick</h2>
+      <h2>Constraints deserve names</h2>
       <p>
         Declare a <code>CheckConstraint</code> or let <code>unique=True</code>
         generate one, and by default the <em>database</em> invents its name.
         SQLAlchemy doesn't know it; Alembic (Chapter 9) therefore can't emit
         <code>DROP CONSTRAINT</code> for it later. The fix is a
-        <strong>naming convention</strong> on your metadata, set once, on day one:
+        naming convention on your metadata, set once, on day one:
       </p>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch04/03_naming_conventions.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch04/03_naming_conventions.py, abridged</figcaption>
         <pre><code class="language-python">from sqlalchemy import MetaData
 
 NAMING_CONVENTION = {
@@ -165,7 +165,7 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)</code></pre>
       </figure>
       <figure class="codeblock sql-echo">
-        <figcaption class="code-label">what the database sees — every constraint named</figcaption>
+        <figcaption class="code-label">what the database sees: every constraint named</figcaption>
         <pre><code class="language-sql">CREATE TABLE pets (
     id SERIAL NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -178,10 +178,10 @@ class Base(DeclarativeBase):
       <aside class="callout production">
         <span class="callout-title">🏭 In production</span>
         <p>
-          This is the single highest-leverage five lines in this book. Teams that
-          skip it discover the problem a year in, when a migration needs to drop
-          a unique constraint on a 200-million-row table and nobody can name it —
-          the constraint exists as <code>orders_customer_email_key</code> on
+          These five lines have the highest payoff of anything in this book. Teams
+          that skip it discover the problem a year in, when a migration needs to
+          drop a unique constraint on a 200-million-row table and nobody can name
+          it: the constraint exists as <code>orders_customer_email_key</code> on
           staging and <code>orders_customer_email_key1</code> in production,
           because it was created twice by hand. Set the convention before your
           first migration and every environment agrees forever.
@@ -195,12 +195,12 @@ class Base(DeclarativeBase):
         <thead><tr><th>Need</th><th>Spelling</th></tr></thead>
         <tbody>
           <tr><td>Long prose</td><td><code>Mapped[str | None] = mapped_column(Text)</code></td></tr>
-          <tr><td>Money</td><td><code>Mapped[Decimal] = mapped_column(Numeric(10, 2))</code> — never Float</td></tr>
+          <tr><td>Money</td><td><code>Mapped[Decimal] = mapped_column(Numeric(10, 2))</code>, never Float</td></tr>
           <tr><td>Status field</td><td><code>Mapped[OrderStatus]</code> from a Python <code>enum.Enum</code> → native PG ENUM</td></tr>
           <tr><td>Semi-structured data</td><td><code>Mapped[dict | None] = mapped_column(JSONB)</code> (PostgreSQL dialect)</td></tr>
           <tr><td>Fast lookups</td><td><code>mapped_column(index=True)</code></td></tr>
           <tr><td>Multi-column rules</td><td><code>__table_args__ = (UniqueConstraint(...), CheckConstraint(...))</code></td></tr>
-          <tr><td>Column name ≠ attribute name</td><td><code>mapped_column("metadata", JSONB)</code> — first positional arg</td></tr>
+          <tr><td>Column name ≠ attribute name</td><td><code>mapped_column("metadata", JSONB)</code>, first positional arg</td></tr>
         </tbody>
       </table>
 
@@ -212,7 +212,7 @@ class Base(DeclarativeBase):
           <code>03_naming_conventions.py</code>.
         </p>
         <p>
-          Challenge: <code>uv run pytest challenges/ch04</code> — declare a
+          Challenge: <code>uv run pytest challenges/ch04</code>. Declare a
           <code>Product</code> model to a precise spec. The tests inspect your
           generated table: types, nullability, both kinds of default, and a CHECK
           constraint that must come out named

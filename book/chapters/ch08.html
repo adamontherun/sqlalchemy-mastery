@@ -49,29 +49,29 @@
       <p class="kicker">Chapter 8 · Part III — Async</p>
       <h1>Async SQLAlchemy</h1>
       <p class="lede">
-        Everything you've learned — engines, sessions, select(), loader options —
+        Everything you've learned (engines, sessions, select(), loader options)
         survives intact; you mostly add <code>await</code>. What changes is one
-        deep rule: <strong>no implicit IO, ever</strong>. This chapter explains
+        deep rule: no implicit IO, ever. This chapter explains
         where that rule comes from and catalogs every place it bites.
       </p>
 
       <h2>How it works: greenlets all the way down</h2>
       <p>
-        SQLAlchemy's internals — the unit of work, the compiler, a decade of
-        battle-tested machinery — are synchronous code. Rather than maintain a
+        SQLAlchemy's internals, the unit of work, the compiler, a decade of
+        battle-tested machinery, are synchronous code. Rather than maintain a
         parallel async rewrite, SQLAlchemy runs that sync machinery inside a
-        <strong>greenlet</strong> (a coroutine-like construct that can be paused
+        greenlet (a coroutine-like construct that can be paused
         from anywhere), and when the code reaches the point of actual database IO,
         it context-switches out to the event loop, awaits the truly-async driver
-        (<code>asyncpg</code>), and switches back. Your <code>await
-        session.execute(...)</code> is: hop into a greenlet, run the familiar sync
-        path, surface each driver call as a real awaitable.
+        (<code>asyncpg</code>), and switches back. Your
+        <code>await session.execute(...)</code> hops into a greenlet, runs the
+        familiar sync path, and surfaces each driver call as a real awaitable.
       </p>
       <p>
         This buys perfect API symmetry with a catch: the escape hatch only exists
         <em>inside</em> that greenlet bridge. Any code path that tries to do
-        database IO <em>outside</em> it — like a lazy load triggered by innocent
-        attribute access — cannot await anything, and raises the exception this
+        database IO <em>outside</em> it, like a lazy load triggered by innocent
+        attribute access, cannot await anything, and raises the exception this
         chapter is really about:
       </p>
       <figure class="codeblock sql-echo">
@@ -83,7 +83,7 @@ can't call await_only() here. Was IO attempted in an unexpected place?</code></p
       <aside class="callout watch21">
         <span class="callout-title">⏭ 2.1 watch</span>
         <p>
-          In 2.1 <code>greenlet</code> stops installing automatically — you opt in
+          In 2.1 <code>greenlet</code> stops installing automatically. You opt in
           with <code>pip install "sqlalchemy[asyncio]"</code>. Recent 2.0.x
           releases already skip it on some platforms (this course's own
           <code>pyproject.toml</code> hit exactly that and uses the extra).
@@ -94,7 +94,7 @@ can't call await_only() here. Was IO attempted in an unexpected place?</code></p
 
       <h2>The async vocabulary</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch08/01_async_basics.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch08/01_async_basics.py, abridged</figcaption>
         <pre><code class="language-python">from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 engine = create_async_engine("postgresql+asyncpg://course:course@localhost:5439/course")
@@ -105,8 +105,8 @@ async with engine.begin() as conn:
 factory = async_sessionmaker(engine, expire_on_commit=False)
 
 async with factory() as session:
-    session.add(Quote(text="...", author="..."))    # no await — no IO!
-    await session.commit()                          # await — IO
+    session.add(Quote(text="...", author="..."))    # no await: no IO!
+    await session.commit()                          # await: IO happens here
 
     result = await session.scalars(select(Quote))   # same select() as always
 
@@ -114,11 +114,11 @@ await engine.dispose()                              # ALWAYS, at shutdown</code>
       </figure>
       <p>
         Note the precision of the <code>await</code>s: <code>session.add()</code>
-        isn't awaited (Chapter 5 taught you it's pure bookkeeping);
-        <code>commit()</code>, <code>scalars()</code>, <code>refresh()</code> are.
-        The async API is an honest map of where IO actually happens — which is
+        isn't awaited (Chapter 5 taught you it's pure bookkeeping), while
+        <code>commit()</code>, <code>scalars()</code>, and <code>refresh()</code>
+        are. The async API is an honest map of where IO actually happens, which is
         why learning the sync rhythm first was the right order. The pool is an
-        <code>AsyncAdaptedQueuePool</code>, automatically — all of Chapter 2's
+        <code>AsyncAdaptedQueuePool</code> automatically; all of Chapter 2's
         sizing math still applies.
       </p>
 
@@ -130,9 +130,9 @@ await engine.dispose()                              # ALWAYS, at shutdown</code>
       <figure class="codeblock">
         <figcaption class="code-label">the trap and the three exits</figcaption>
         <pre><code class="language-python">author = (await session.scalars(select(Author))).one()
-author.books                     # 💥 MissingGreenlet — hidden IO
+author.books                     # MissingGreenlet: hidden IO
 
-# exit A (usually best): eager-load in the query — ch07 knowledge, unchanged
+# exit A (usually best): eager-load in the query, ch07 knowledge unchanged
 select(Author).options(selectinload(Author.books))
 
 # exit B: AsyncAttrs on your Base, then IO is explicit and awaited
@@ -144,56 +144,55 @@ await session.refresh(author, ["books"])</code></pre>
       </figure>
       <p>
         Notice the philosophical inversion: in sync land, the N+1 problem
-        (Chapter 7) was <em>silent</em> — everything worked, slowly. Async
+        (Chapter 7) was <em>silent</em>. Everything worked, slowly. Async
         SQLAlchemy makes hidden IO <em>impossible</em> instead. It's the
         <code>raiseload("*")</code> discipline, enforced by physics. Annoying on
         day one; the correct default forever after.
       </p>
 
-      <h3>2. expire_on_commit — again, and now it matters</h3>
+      <h3>2. expire_on_commit again, and now it matters</h3>
       <p>
         Chapter 5 planted this flag: after <code>commit()</code>, every attribute
-        is expired and the next access reloads. Reload = IO = greenlet error. So
-        touching <code>obj.anything</code> after an async commit — even a plain
-        column — explodes:
+        is expired and the next access reloads. Reload means IO, and IO means a
+        greenlet error. So touching <code>obj.anything</code> after an async
+        commit, even a plain column, explodes:
       </p>
       <figure class="codeblock">
         <figcaption class="code-label">the standard configuration, not a preference</figcaption>
         <pre><code class="language-python">factory = async_sessionmaker(engine, expire_on_commit=False)</code></pre>
       </figure>
       <p>
-        Every credible async example — including SQLAlchemy's own docs — sets
+        Every credible async example, including SQLAlchemy's own docs, sets
         this. Treat it as part of the <code>async_sessionmaker</code> incantation.
       </p>
 
       <h3>3. One session per task, one engine per event loop</h3>
-      <ul>
-        <li>An <code>AsyncSession</code> is a single-task creature. For
-          <code>asyncio.gather()</code> fan-out, each task opens its own session
-          from the shared factory — <code>examples/ch08/03_concurrency.py</code>
-          runs 8 workers over a 5-connection pool to show the pattern (and that
-          the pool queues gracefully).</li>
-        <li>An <code>AsyncEngine</code> is bound to the event loop its connections
-          were created on. Don't create it at import time in one loop and use it
-          in another (a classic pytest bug — Chapter 10); call
-          <code>await engine.dispose()</code> before crossing loops, and always
-          at shutdown — otherwise garbage collection prints
-          <code>RuntimeError: Event loop is closed</code> at exit.</li>
-      </ul>
+      <p>
+        An <code>AsyncSession</code> is a single-task creature. For
+        <code>asyncio.gather()</code> fan-out, each task opens its own session
+        from the shared factory: <code>examples/ch08/03_concurrency.py</code>
+        runs 8 workers over a 5-connection pool to show the pattern, and that
+        the pool queues gracefully. An <code>AsyncEngine</code> is bound to the
+        event loop its connections were created on. Don't create it at import
+        time in one loop and use it in another (a classic pytest bug, see
+        Chapter 10); call <code>await engine.dispose()</code> before crossing
+        loops, and always at shutdown, or garbage collection prints
+        <code>RuntimeError: Event loop is closed</code> at exit.
+      </p>
 
       <aside class="callout production">
         <span class="callout-title">🏭 In production</span>
         <p>
-          <strong>asyncpg + pgbouncer</strong> (transaction mode) is a notorious
+          asyncpg plus pgbouncer in transaction mode is a notorious
           pairing: asyncpg caches prepared statements per connection, but
-          pgbouncer hands "your" connection to someone else between transactions
-          — result: <code>DuplicatePreparedStatementError</code> at 2am. If you
-          must run through pgbouncer, disable <em>both</em> caches in
+          pgbouncer hands "your" connection to someone else between transactions,
+          and the result is <code>DuplicatePreparedStatementError</code> at 2am.
+          If you must run through pgbouncer, disable <em>both</em> caches in
           <code>connect_args</code>: <code>statement_cache_size=0</code>
           <em>and</em> <code>prepared_statement_cache_size=0</code> (guides that
           mention only the first reduce the error rate without eliminating it).
-          Cleaner: point SQLAlchemy at PostgreSQL directly with
-          <code>NullPool</code>-free normal pooling, and let pgbouncer serve the
+          Cleaner: point SQLAlchemy at PostgreSQL directly with normal pooling,
+          skipping <code>NullPool</code>, and let pgbouncer serve the
           clients that need it.
         </p>
       </aside>
@@ -201,7 +200,7 @@ await session.refresh(author, ["books"])</code></pre>
       <h2>Do you even need async?</h2>
       <p>
         An honest aside before Part IV: async shines when your service holds
-        <em>many concurrent</em> requests that spend their time waiting — on the
+        many concurrent requests that spend their time waiting, on the
         database, on other APIs. A background job, a CLI, a low-traffic admin
         app gains nothing but complexity. Sync SQLAlchemy with a properly sized
         pool is boring, fast, and immune to every gotcha in this chapter. Choose
@@ -217,7 +216,7 @@ await session.refresh(author, ["books"])</code></pre>
           <code>03_concurrency.py</code>.
         </p>
         <p>
-          Challenge: <code>uv run pytest challenges/ch08</code> — async playlist
+          Challenge: <code>uv run pytest challenges/ch08</code>. An async playlist
           CRUD where the tests read relationships after your session closes and
           commit-then-read on purpose. Every trap in this chapter, armed.
         </p>

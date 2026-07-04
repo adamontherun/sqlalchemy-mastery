@@ -49,7 +49,7 @@
       <p class="kicker">Chapter 10 · Part IV — Production</p>
       <h1>Testing</h1>
       <p class="lede">
-        Test against the real database — mocking SQLAlchemy tests your mocks, and
+        Test against the real database. Mocking SQLAlchemy tests your mocks, and
         SQLite-in-memory tests a different database than you ship. The trick that
         makes real-Postgres tests fast and independent is one nested transaction.
       </p>
@@ -58,12 +58,12 @@
       <p>
         Your SQLAlchemy code's <em>job</em> is to produce correct SQL for your
         actual database. Mock the session and you've verified that your code
-        calls the methods you mocked — a tautology. Swap in SQLite "for speed"
-        and you're testing a database with different types, different constraint
-        enforcement, no <code>ON CONFLICT</code> semantics you rely on, and none
-        of the PostgreSQL features (JSONB, enums, <code>RETURNING</code>
-        nuances) this course has been using. You have PostgreSQL 17 in Docker
-        one <code>compose up</code> away — test against it.
+        calls the methods you mocked, which is a tautology. Swap in SQLite "for
+        speed" and you're testing a database with different types, different
+        constraint enforcement, no <code>ON CONFLICT</code> semantics you rely
+        on, and none of the PostgreSQL features (JSONB, enums,
+        <code>RETURNING</code> nuances) this course has been using. You have
+        PostgreSQL 17 in Docker one <code>compose up</code> away. Test against it.
       </p>
       <p>
         The objection is speed and isolation: tests that share a database dirty
@@ -78,11 +78,11 @@
         <code>join_transaction_mode="create_savepoint"</code>: every
         <code>commit()</code> the code under test performs becomes a
         <em>savepoint release</em> inside the outer transaction. Teardown rolls
-        the outer transaction back, and everything — including "committed" work —
+        the outer transaction back, and everything, including "committed" work,
         vanishes. From <code>examples/ch10/conftest.py</code>:
       </p>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch10/conftest.py — the sync fixture</figcaption>
+        <figcaption class="code-label">examples/ch10/conftest.py, the sync fixture</figcaption>
         <pre><code class="language-python">@pytest.fixture(scope="session")
 def engine():
     engine = create_engine(DB_URL)
@@ -107,7 +107,7 @@ def db_session(engine):
       </figure>
       <p>And the proof, from the demo tests you can run right now:</p>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch10/test_isolation_demo.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch10/test_isolation_demo.py, abridged</figcaption>
         <pre><code class="language-python">def test_writes_and_commits(db_session):
     db_session.add(Widget(name="gizmo"))
     db_session.commit()                   # a real commit, from app code's view
@@ -120,7 +120,7 @@ def test_sees_none_of_the_previous_tests_data(db_session):
     assert db_session.scalar(select(func.count(Widget.id))) == 0   # pristine!</code></pre>
       </figure>
       <p>
-        No TRUNCATE, no schema rebuild, no test ordering constraints — each test
+        No TRUNCATE, no schema rebuild, no test ordering constraints: each test
         gets a database that looks empty, at the cost of one BEGIN/ROLLBACK
         pair. This is the officially documented approach ("joining a session
         into an external transaction"), not a community hack.
@@ -134,41 +134,37 @@ def test_sees_none_of_the_previous_tests_data(db_session):
           commit it for real, and teardown would have nothing to roll back.
           <code>create_savepoint</code> mode makes the Session treat the outer
           transaction as untouchable and conduct all its "transactions" as
-          nested <code>SAVEPOINT</code>/<code>RELEASE</code> — PostgreSQL
-          supports these natively and cheaply.
+          nested <code>SAVEPOINT</code>/<code>RELEASE</code>, which PostgreSQL
+          supports natively and cheaply.
         </p>
       </aside>
 
       <h2>The async flavor</h2>
       <p>
-        Same idea with <code>AsyncSession</code> — see the async fixture in the
+        Same idea with <code>AsyncSession</code>. See the async fixture in the
         same conftest. Two async-specific rules from Chapter 8 apply doubly in
-        tests:
+        tests: pytest-asyncio can give each test its own event loop, and an
+        async engine must not hop loops (the symptom is baffling
+        <code>RuntimeError: ... attached to a different loop</code> /
+        <code>Event loop is closed</code> flakiness), so create the engine
+        inside the fixture and dispose it at the end. And
+        <code>asyncio_mode = "auto"</code> in <code>pyproject.toml</code>
+        (this repo sets it) lets you write bare <code>async def test_...</code>
+        functions without decorating each one.
       </p>
-      <ul>
-        <li><strong>Engine per test (or per loop)</strong>: pytest-asyncio can
-          give each test its own event loop, and an async engine must not hop
-          loops — the symptom is baffling
-          <code>RuntimeError: ... attached to a different loop</code> /
-          <code>Event loop is closed</code> flakiness. An engine created inside
-          the fixture and disposed at the end is immune.</li>
-        <li><code>asyncio_mode = "auto"</code> in <code>pyproject.toml</code>
-          (this repo sets it) lets you write bare <code>async def test_...</code>
-          functions without decorating each one.</li>
-      </ul>
 
       <aside class="callout production">
         <span class="callout-title">🏭 In production</span>
         <p>
           Two upgrades teams commonly add: run the suite's schema from
-          <strong>Alembic migrations instead of create_all</strong> once
-          migrations exist — then your migration chain is tested on every CI
-          run for free; and add <strong><code>raiseload("*")</code></strong> as
+          Alembic migrations instead of create_all once
+          migrations exist, so your migration chain is tested on every CI
+          run for free; and add <code>raiseload("*")</code> as
           a default loader option in test fixtures, so any relationship access
           that would lazy-load in production fails loudly in CI first (chapter
           7's N+1s, caught mechanically). For CI without a shared database,
-          <em>testcontainers</em> starts a throwaway Postgres per run — same
-          fixtures, zero infrastructure.
+          <em>testcontainers</em> starts a throwaway Postgres per run with the
+          same fixtures and zero infrastructure.
         </p>
       </aside>
 
@@ -176,13 +172,13 @@ def test_sees_none_of_the_previous_tests_data(db_session):
         <h3>⚡ Try it</h3>
         <p>
           Run the demo suite and read its output:
-          <code>uv run pytest examples/ch10 -v</code> — five tests proving
+          <code>uv run pytest examples/ch10 -v</code>: five tests proving
           commit-then-vanish isolation, sync and async.
         </p>
         <p>
-          Challenge: <code>uv run pytest challenges/ch10</code> — build the
+          Challenge: <code>uv run pytest challenges/ch10</code>. Build the
           harness yourself as a reusable class. The meta-tests commit data,
-          then check from a <em>separate connection</em> that nothing leaked —
+          then check from a <em>separate connection</em> that nothing leaked,
           and run your harness against a one-connection pool to prove it
           doesn't leak connections either.
         </p>

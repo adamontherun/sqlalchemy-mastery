@@ -49,15 +49,15 @@
       <p class="kicker">Chapter 7 · Part II — The ORM</p>
       <h1>Relationships</h1>
       <p class="lede">
-        <code>relationship()</code> turns foreign keys into object navigation —
+        <code>relationship()</code> turns foreign keys into object navigation:
         <code>book.author</code>, <code>author.books</code>. It's the ORM's best
         feature and the source of its most famous performance bug. This chapter
-        gives you both: the modeling, and the loader discipline.
+        gives you both the modeling and the loader discipline.
       </p>
 
       <h2>One-to-many, both directions</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch07/01_one_to_many.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch07/01_one_to_many.py, abridged</figcaption>
         <pre><code class="language-python">class Author(Base):
     __tablename__ = "authors"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -77,34 +77,31 @@ class Book(Base):
 
     author: Mapped[Author] = relationship(back_populates="books")</code></pre>
       </figure>
-      <p>Three things to notice:</p>
-      <ul>
-        <li>The <code>ForeignKey</code> column still exists — relationships are
-          built <em>on</em> the FK, not instead of it. But you'll rarely assign
-          <code>author_id</code> by hand again: set <code>book.author</code> or
-          append to <code>author.books</code> and the flush works out the keys.</li>
-        <li><code>back_populates</code> names the attribute on the <em>other</em>
-          class, and SQLAlchemy keeps the two in sync in Python, immediately —
-          set <code>book.author = le_guin</code> and the book is already in
-          <code>le_guin.books</code>, before any SQL exists.</li>
-        <li>One <code>session.add(author)</code> saves the whole graph — the
-          <code>save-update</code> cascade follows relationships to find related
-          pending objects.</li>
-      </ul>
+      <p>Three things to notice. The <code>ForeignKey</code> column still exists;
+        relationships are built <em>on</em> the FK, not instead of it. But you'll
+        rarely assign <code>author_id</code> by hand again: set
+        <code>book.author</code> or append to <code>author.books</code> and the
+        flush works out the keys. <code>back_populates</code> names the attribute
+        on the <em>other</em> class, and SQLAlchemy keeps the two in sync in
+        Python immediately: set <code>book.author = le_guin</code> and the book
+        is already in <code>le_guin.books</code>, before any SQL exists. And one
+        <code>session.add(author)</code> saves the whole graph, since the
+        <code>save-update</code> cascade follows relationships to find related
+        pending objects.</p>
       <p>
         <code>cascade="all, delete-orphan"</code> encodes an ownership claim:
         books belong to their author. Delete the author and the books go too
-        (<code>delete</code>); <em>remove a book from the collection</em> and the
+        (<code>delete</code>); remove a book from the collection and the
         orphaned row is deleted rather than left dangling with a NULL FK
-        (<code>delete-orphan</code>). For relationships that are mere references
-        — a book's <em>publisher</em>, say — you'd omit the cascade; don't claim
+        (<code>delete-orphan</code>). For relationships that are mere references,
+        a book's publisher say, you'd omit the cascade; don't claim
         ownership you don't mean.
       </p>
 
       <h2>Many-to-many: the association table</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch07/02_many_to_many.py — abridged</figcaption>
-        <pre><code class="language-python">post_tags = Table(                      # plain Core — no identity, no class
+        <figcaption class="code-label">examples/ch07/02_many_to_many.py, abridged</figcaption>
+        <pre><code class="language-python">post_tags = Table(                      # plain Core: no identity, no class
     "post_tags", Base.metadata,
     Column("post_id", ForeignKey("posts.id"), primary_key=True),
     Column("tag_id", ForeignKey("tags.id"), primary_key=True),
@@ -120,21 +117,21 @@ class Tag(Base):
       </figure>
       <p>
         <code>secondary=</code> points at the join table and SQLAlchemy manages its
-        rows invisibly — append a tag, a row appears; remove it, the row goes.
+        rows invisibly: append a tag, a row appears; remove it, the row goes.
         The moment the association needs <em>data of its own</em> (added_at, who
         added it), promote it to a real mapped class and the m2m becomes two
-        one-to-manys — the "association object" pattern.
+        one-to-manys, the "association object" pattern.
       </p>
 
       <h2>The N+1 problem, with a body count</h2>
       <p>
-        Relationships load <strong>lazily</strong> by default: first access emits a
+        Relationships load lazily by default: first access emits a
         SELECT. Innocent in a script; a massacre in a loop.
         <code>examples/ch07/03_n_plus_one.py</code> counts actual statements with
         an event listener:
       </p>
       <figure class="codeblock sql-echo">
-        <figcaption class="code-label">actual output — 10 bands, 30 albums</figcaption>
+        <figcaption class="code-label">actual output: 10 bands, 30 albums</figcaption>
         <pre><code class="language-text">lazy loading:      30 albums fetched with 11 queries  &lt;- N+1!
 selectinload:      30 albums fetched with 2 queries
 joinedload:        30 albums + their 10 bands in 1 query
@@ -144,7 +141,7 @@ raiseload:         InvalidRequestError: 'Band.albums' is not available due to la
         Eleven queries for ten bands: one for the bands, plus one per band the
         moment the loop touches <code>band.albums</code>. It works, it's correct,
         and at 10,000 rows it's a production incident with your name on it. The
-        fixes are <strong>loader options</strong> — same query, different loading
+        fixes are loader options: same query, different loading
         plan:
       </p>
       <table>
@@ -153,16 +150,16 @@ raiseload:         InvalidRequestError: 'Band.albums' is not available due to la
           <tr>
             <td><code>selectinload(A.items)</code></td>
             <td>2nd SELECT with <code>IN (parent ids)</code></td>
-            <td><strong>Collections</strong> — the default answer</td>
+            <td>Collections, the default answer</td>
           </tr>
           <tr>
             <td><code>joinedload(A.parent)</code></td>
             <td>LEFT OUTER JOIN, same statement</td>
-            <td><strong>Many-to-one</strong> — one extra column set, no row explosion</td>
+            <td>Many-to-one: one extra column set, no row explosion</td>
           </tr>
           <tr>
             <td><code>raiseload(A.items)</code></td>
-            <td>no SQL — raises instead</td>
+            <td>no SQL, raises instead</td>
             <td>Enforcement: turn hidden IO into loud errors</td>
           </tr>
           <tr>
@@ -179,22 +176,21 @@ raiseload:         InvalidRequestError: 'Band.albums' is not available due to la
           <code>joinedload()</code> on a <em>collection</em> multiplies parent
           rows by the join (10 bands × 3 albums = 30 result rows), so SQLAlchemy
           requires <code>session.scalars(stmt).unique().all()</code> to
-          de-duplicate — and raises a very explicit error if you forget. That's
-          the deeper reason the rule of thumb exists:
-          <strong>selectinload for collections, joinedload for
-          many-to-ones</strong> — each is the shape that doesn't distort the
-          result set.
+          de-duplicate, and raises a very explicit error if you forget. That's
+          the deeper reason the rule of thumb exists: selectinload for
+          collections, joinedload for many-to-ones. Each is the shape that
+          doesn't distort the result set.
         </p>
       </aside>
 
       <aside class="callout production">
         <span class="callout-title">🏭 In production</span>
         <p>
-          N+1s are invisible in development — 3 test rows load fast no matter
+          N+1s are invisible in development: 3 test rows load fast no matter
           what. Two habits catch them before customers do: run dev with
-          <code>echo=True</code> occasionally and <em>read</em> the flood; and
+          <code>echo=True</code> occasionally and <em>read</em> the flood, and
           put <code>raiseload("*")</code> on query paths that must be
-          IO-complete (or globally in tests — Chapter 10 shows the fixture).
+          IO-complete (or globally in tests; Chapter 10 shows the fixture).
           The async world goes further: over there, every lazy load is
           <em>already</em> an error. Chapter 8 explains why that's a feature.
         </p>
@@ -202,10 +198,10 @@ raiseload:         InvalidRequestError: 'Band.albums' is not available due to la
 
       <h2>Ordering and sensible defaults</h2>
       <p>
-        Collections come back in database order — i.e., no order at all. Declare
+        Collections come back in database order, i.e., no order at all. Declare
         one where it's intrinsic:
         <code>relationship(..., order_by="Player.goals.desc()")</code>. And
-        for large collections consider whether you want a relationship at all —
+        for large collections consider whether you want a relationship at all:
         <code>select(Album).where(Album.band_id == b.id).limit(...)</code> beats
         loading ten thousand albums to show five. (2.0 also offers
         <code>lazy="write_only"</code> for exactly this: a relationship you can
@@ -220,9 +216,9 @@ raiseload:         InvalidRequestError: 'Band.albums' is not available due to la
           <code>03_n_plus_one.py</code>.
         </p>
         <p>
-          Challenge: <code>uv run pytest challenges/ch07</code> — wire up the
+          Challenge: <code>uv run pytest challenges/ch07</code>. Wire up the
           relationships yourself, then satisfy queries under a
-          <strong>query budget enforced by an event listener</strong>. Correct
+          query budget enforced by an event listener. Correct
           answers with N+1 loops fail. This is the chapter where the tests
           fight back.
         </p>

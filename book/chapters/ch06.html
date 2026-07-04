@@ -50,13 +50,13 @@
       <h1>Querying with the ORM</h1>
       <p class="lede">
         Here's the payoff of learning Core first: there is no "ORM query language"
-        to learn. It's the same <code>select()</code> — you just put classes in it
+        to learn. It's the same <code>select()</code>; you just put classes in it
         and get objects out.
       </p>
 
       <h2>select(Entity) and the scalars() habit</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch06/01_select_entities.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch06/01_select_entities.py, abridged</figcaption>
         <pre><code class="language-python">films = session.scalars(
     select(Film).where(Film.year &gt;= 2016).order_by(Film.year)
 ).all()                                    # -&gt; list[Film]
@@ -67,24 +67,23 @@ film = session.get(Film, 1)               # PK lookup; identity-map aware</code>
       </figure>
       <p>
         The one wrinkle worth understanding: <code>session.execute(select(Film))</code>
-        returns <em>rows</em> — tuples of one <code>Film</code> each, i.e.
-        <code>(Film,)</code> — because a select can name several things. Since you
+        returns <em>rows</em>, tuples of one <code>Film</code> each, i.e.
+        <code>(Film,)</code>, because a select can name several things. Since you
         usually want just the objects, <code>session.scalars()</code> unwraps the
-        first element of each row. Internalize the pair:
-        <strong><code>execute()</code> for rows, <code>scalars()</code> for
-        objects</strong>, and 90% of "why is my result a tuple?" confusion never
-        happens.
+        first element of each row. Internalize the pair: <code>execute()</code> for
+        rows, <code>scalars()</code> for objects, and 90% of "why is my result a
+        tuple?" confusion never happens.
       </p>
       <p>
-        Model attributes are the same column expressions you used in Chapter 3 —
+        Model attributes are the same column expressions you used in Chapter 3:
         <code>Film.year &gt;= 2016</code>, <code>Film.title.ilike("%dune%")</code>,
         <code>Film.id.in_([1, 2, 3])</code> all compile exactly as before.
       </p>
 
       <h2>Aggregates and mixed selections</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch06/02_aggregates_and_orm.py — abridged</figcaption>
-        <pre><code class="language-python"># pure aggregation — comes back as plain named-tuple rows
+        <figcaption class="code-label">examples/ch06/02_aggregates_and_orm.py, abridged</figcaption>
+        <pre><code class="language-python"># pure aggregation: comes back as plain named-tuple rows
 stmt = (
     select(Track.artist, func.count().label("n"), func.sum(Track.plays))
     .group_by(Track.artist)
@@ -100,7 +99,7 @@ for track, pct in session.execute(stmt):
       <h2>Set-based writes: ORM-enabled UPDATE and DELETE</h2>
       <p>
         Chapter 5's load-mutate-commit is right for business logic on individual
-        objects. For "touch ten thousand rows" it would be a disaster — so the
+        objects. For "touch ten thousand rows" it would be a disaster, so the
         ORM also accepts Core's <code>update()</code>/<code>delete()</code>
         directly on the session:
       </p>
@@ -121,7 +120,7 @@ session.execute(delete(Track).where(Track.plays &lt; 100))</code></pre>
 
       <h2>Upserts: when "insert or update" must be atomic</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch06/03_upsert.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch06/03_upsert.py, abridged</figcaption>
         <pre><code class="language-python">from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 stmt = pg_insert(Setting).values(key="theme", value="dark")
@@ -138,15 +137,15 @@ session.execute(stmt)</code></pre>
         into the database where it's atomic. Note the import: upsert syntax is
         deliberately <em>dialect-specific</em> (this one lives in
         <code>sqlalchemy.dialects.postgresql</code>), because every database
-        spells it differently — SQLAlchemy refuses to paper over semantics that
-        differ.
+        spells it differently, and SQLAlchemy refuses to paper over semantics
+        that differ.
       </p>
 
       <aside class="callout gotcha">
         <span class="callout-title">⚠ Gotcha</span>
         <p>
-          ORM-enabled bulk UPDATE/DELETE and upserts <strong>do not fire
-          cascades or most ORM events</strong> — they're set-based SQL, and rows
+          ORM-enabled bulk UPDATE/DELETE and upserts do not fire
+          cascades or most ORM events. They're set-based SQL, and rows
           the statement touches were never loaded. If your model relies on
           Python-side <code>delete-orphan</code> cascade behavior (Chapter 7) or
           event listeners, those only run through the unit of work
@@ -158,12 +157,12 @@ session.execute(stmt)</code></pre>
       <h2>When the ORM is the wrong tool</h2>
       <p>
         A quiet rule of thumb to close the chapter: the ORM earns its overhead
-        when <em>identity and behavior</em> matter — the same row seen twice must
+        when <em>identity and behavior</em> matter: the same row seen twice must
         be the same object, changes should be tracked, cascades should fire. For
         read-heavy reporting where rows go straight into JSON or a DataFrame,
         select plain columns (<code>select(Track.artist, ...)</code>) or drop to a
-        <code>Connection</code> — no identity map to fill, no objects to
-        construct. Chapter 11 puts numbers on this.
+        <code>Connection</code>, where there's no identity map to fill and no
+        objects to construct. Chapter 11 puts numbers on this.
       </p>
 
       <div class="tryit">
@@ -173,7 +172,7 @@ session.execute(stmt)</code></pre>
           <code>02_aggregates_and_orm.py</code>, <code>03_upsert.py</code>.
         </p>
         <p>
-          Challenge: <code>uv run pytest challenges/ch06</code> — a library loan
+          Challenge: <code>uv run pytest challenges/ch06</code>. A library loan
           desk: overdue books, loan counts per member (JOIN + GROUP BY in one
           query), and a bulk return via <code>UPDATE ... IN</code>.
         </p>

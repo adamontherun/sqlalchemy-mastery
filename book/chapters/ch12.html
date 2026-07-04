@@ -52,13 +52,13 @@
         The finale assembles everything: one engine per app (ch2), one session per
         request (ch5), eager loading for serialization (ch7), async rules honored
         (ch8). A complete working service lives in
-        <code>examples/ch12/bookmarks_api.py</code> — this chapter walks its
+        <code>examples/ch12/bookmarks_api.py</code>. This chapter walks its
         four load-bearing walls.
       </p>
 
       <h2>Wall 1: the engine lives in lifespan</h2>
       <figure class="codeblock">
-        <figcaption class="code-label">examples/ch12/bookmarks_api.py — abridged</figcaption>
+        <figcaption class="code-label">examples/ch12/bookmarks_api.py, abridged</figcaption>
         <pre><code class="language-python">@asynccontextmanager
 async def lifespan(app: FastAPI):
     engine = create_async_engine(DATABASE_URL, pool_size=10, pool_pre_ping=True)
@@ -69,11 +69,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)</code></pre>
       </figure>
       <p>
-        Built once at startup, disposed once at shutdown — the Chapter 2 rule in
+        Built once at startup, disposed once at shutdown: the Chapter 2 rule in
         FastAPI clothing. Creating the engine at import time works until the day
         something imports your module from a different event loop (a test
         runner, a worker); lifespan makes the lifecycle explicit and
-        loop-correct. Schema creation in lifespan is demo convenience — real
+        loop-correct. Schema creation in lifespan is demo convenience; real
         deployments run <code>alembic upgrade head</code> as a release step
         (Chapter 9).
       </p>
@@ -97,29 +97,26 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]</code></pre>
         This is Chapter 5's "sessions are created at the operation boundary and
         passed in," where the operation is an HTTP request and the passing is
         <code>Depends</code>. FastAPI caches dependencies per request, so every
-        layer that asks for <code>SessionDep</code> — handler, service,
-        repository — shares one session and therefore one transaction. Commit
+        layer that asks for <code>SessionDep</code> (handler, service,
+        repository) shares one session and therefore one transaction. Commit
         happens in exactly one place; endpoints never call
         <code>commit()</code> themselves (they may <code>flush()</code> to get
-        generated ids — flush ≠ commit, Chapter 5).
+        generated ids; flush is not commit, Chapter 5).
       </p>
 
       <h2>Wall 3: serialization happens after the session closes</h2>
       <p>
         The subtle one. Your handler returns an ORM object; FastAPI/Pydantic
-        serializes it <em>after</em> the dependency generator finished — session
+        serializes it <em>after</em> the dependency generator finished, session
         closed, transaction committed. Two Chapter 8 traps are armed at exactly
-        that moment:
+        that moment. If attributes expired at commit, a reload attempt outside
+        the session raises <code>MissingGreenlet</code> or
+        <code>DetachedInstanceError</code>, which is why
+        <code>expire_on_commit=False</code> in the factory is non-negotiable
+        in this architecture. And if the response model includes a relationship
+        that wasn't loaded, the lazy-load attempt causes the same explosion,
+        which is why whatever the response model needs, the query eager-loads:
       </p>
-      <ul>
-        <li>If attributes expired at commit → reload attempt outside the
-          session → <code>MissingGreenlet</code> / <code>DetachedInstanceError</code>.
-          Hence <code>expire_on_commit=False</code> in the factory —
-          non-negotiable in this architecture.</li>
-        <li>If the response model includes a relationship that wasn't loaded →
-          lazy-load attempt → same explosion. Hence: <strong>whatever the
-          response model needs, the query eager-loads</strong>:</li>
-      </ul>
       <figure class="codeblock">
         <figcaption class="code-label">the response model dictates the loader options</figcaption>
         <pre><code class="language-python">@app.get("/bookmarks", response_model=list[BookmarkOut])   # includes tags
@@ -132,7 +129,7 @@ async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
     return list(result)</code></pre>
       </figure>
 
-      <h2>Wall 4: errors roll back — and the app keeps working</h2>
+      <h2>Wall 4: errors roll back, and the app keeps working</h2>
       <p>
         A unique-constraint violation shouldn't 500. The pattern: attempt the
         <code>flush()</code>, catch <code>IntegrityError</code>, translate to a
@@ -149,10 +146,10 @@ async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
           Sizing note that unifies chapters 2 and 8: each uvicorn worker process
           has its own engine and pool. Four workers ×
           (<code>pool_size=10</code> + <code>max_overflow</code>) can mean 60+
-          connections — check your PostgreSQL <code>max_connections</code>
+          connections, so check your PostgreSQL <code>max_connections</code>
           (default 100) before the load test does. And the classic FastAPI
           mistake worth repeating: a <code>def</code> endpoint (no async) doing
-          sync SQLAlchemy is fine — it runs in a threadpool. An
+          sync SQLAlchemy is fine, since it runs in a threadpool. An
           <code>async def</code> endpoint doing <em>sync</em> SQLAlchemy blocks
           the event loop for everyone. Pick one stack per service and be
           consistent.
@@ -164,9 +161,9 @@ async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
         You can read a SQLAlchemy stack trace and know which layer produced it.
         You know why the pool times out, why the Session flushes when it does,
         what the async layer forbids and why, how schema change ships, and how
-        to test all of it without flakes. That's not "knows the API" — that's
-        the understanding that debugging at 3am requires. The repo's
-        <code>notes/research.md</code> collects the sources this course
+        to test all of it without flakes. Knowing the API wouldn't get you any
+        of that; this is the understanding that debugging at 3am requires. The
+        repo's <code>notes/research.md</code> collects the sources this course
         distilled if you want to go deeper. Go build something.
       </p>
 
@@ -175,11 +172,11 @@ async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
         <p>
           Run the service:
           <code>uv run uvicorn bookmarks_api:app --app-dir examples/ch12 --port 8012</code>,
-          then poke it with the curl commands in the file's docstring — or open
+          then poke it with the curl commands in the file's docstring, or open
           <code>localhost:8012/docs</code> and use the generated UI.
         </p>
         <p>
-          Final challenge: <code>uv run pytest challenges/ch12</code> — build the
+          Final challenge: <code>uv run pytest challenges/ch12</code>. Build the
           integration yourself: factory, dependency, three endpoints, a 409 that
           rolls back cleanly, and eager loading that survives serialization.
           Everything this book taught, in forty lines of yours.
