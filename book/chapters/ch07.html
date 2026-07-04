@@ -234,8 +234,13 @@ raiseload:         InvalidRequestError: 'Band.albums' is not available due to la
           <code>echo=True</code> occasionally and <em>read</em> the flood, and
           put <code>raiseload("*")</code> on query paths that must be
           IO-complete (or globally in tests; Chapter 10 shows the fixture).
-          The async world goes further: over there, every lazy load is
-          <em>already</em> an error. Chapter 8 explains why that's a feature.
+          The
+          <a href="https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html" target="_blank" rel="noopener">async world</a>
+          goes further: over there, an un-eager-loaded relationship access
+          typically raises <code>MissingGreenlet</code> instead of silently
+          emitting SQL, because the implicit blocking IO a lazy load needs
+          can't happen inside a coroutine. Chapter 8 explains why that
+          accident of implementation is a feature in practice.
         </p>
       </aside>
 

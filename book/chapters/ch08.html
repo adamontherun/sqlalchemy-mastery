@@ -230,13 +230,17 @@ await session.refresh(author, ["books"])</code></pre>
           pairing: asyncpg caches prepared statements per connection, but
           pgbouncer hands "your" connection to someone else between transactions,
           and the result is <code>DuplicatePreparedStatementError</code> at 2am.
-          If you must run through pgbouncer, disable <em>both</em> caches in
-          <code>connect_args</code>: <code>statement_cache_size=0</code>
-          <em>and</em> <code>prepared_statement_cache_size=0</code> (guides that
-          mention only the first reduce the error rate without eliminating it).
-          Cleaner: point SQLAlchemy at PostgreSQL directly with normal pooling,
-          skipping <code>NullPool</code>, and let pgbouncer serve the
-          clients that need it.
+          The
+          <a href="https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#prepared-statement-name-with-pgbouncer" target="_blank" rel="noopener">documented fix</a>
+          is <code>poolclass=NullPool</code> (so SQLAlchemy never reuses a
+          connection pgbouncer might hand elsewhere) plus a
+          <code>prepared_statement_name_func</code> that generates a fresh,
+          unique name per statement — e.g.
+          <code>lambda: f"__asyncpg_{uuid4()}__"</code> — combined with
+          configuring pgbouncer to run <code>DISCARD</code> when it returns a
+          connection to its pool. Cleaner still, if you can: point SQLAlchemy
+          at PostgreSQL directly with normal pooling and let pgbouncer serve
+          only the clients that actually need it.
         </p>
       </aside>
 

@@ -278,7 +278,8 @@ Asking for a 4th connection (this is what a leak feels like)...
           <strong>Two pools don't stack.</strong> If your infrastructure uses
           <a href="https://www.pgbouncer.org/">pgbouncer</a> in transaction-pooling
           mode, SQLAlchemy's QueuePool holding long-lived connections works
-          against it and produces confusing failures. The standard advice
+          against it and produces confusing failures. The
+          <a href="https://github.com/sqlalchemy/sqlalchemy/discussions/8751" target="_blank" rel="noopener">standard advice</a>
           is to give SQLAlchemy <code>poolclass=NullPool</code> and let pgbouncer own
           pooling, or skip pgbouncer until you have the scale that demands it.
           (There's an extra asyncpg-specific trap here; chapter 8 covers it.)

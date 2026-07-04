@@ -157,9 +157,11 @@ yield_per=1000, same rows:    peak memory    2.5 MB</code></pre>
       <p>
         <code>yield_per</code> combines a server-side cursor (PostgreSQL holds
         the result, sending batches) with batched ORM construction. Two caveats:
-        the connection stays busy until you finish iterating, and it can't be
-        combined with collection eager loading (<code>selectinload</code> needs
-        the full parent set, so use it on bounded queries instead).
+        the connection stays busy until you finish iterating, and it's
+        <a href="https://docs.sqlalchemy.org/en/20/orm/queryguide/api.html#orm-queryguide-yield-per" target="_blank" rel="noopener">incompatible with joined or subquery collection eager loading</a>
+        (both need the full parent set up front). <code>selectinload</code> is
+        the documented way around that, since it issues its own follow-up
+        query per batch instead of joining against the whole result.
       </p>
 
       <h2>Choosing the layer, one more time</h2>
