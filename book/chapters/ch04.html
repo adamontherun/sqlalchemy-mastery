@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 4 · Declarative models — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html" class="current"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 4 · Part II — The ORM</p>
+      <h1>Declarative models</h1>
+      <p class="lede">
+        A mapped class is a Python class, a table definition, and a type-checked
+        schema document all at once. Modern SQLAlchemy makes the declaration read
+        like the annotations you already write everywhere else.
+      </p>
+
+      <h2>The modern shape</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch04/01_first_model.py — abridged</figcaption>
+        <pre><code class="language-python">from datetime import datetime
+from sqlalchemy import String, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    nickname: Mapped[str | None]          # Optional in Python == NULLable in SQL
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())</code></pre>
+      </figure>
+      <p>Three ideas carry the whole system:</p>
+      <ul>
+        <li>
+          <strong><code>Mapped[T]</code> declares the Python type</strong>, and
+          SQLAlchemy derives the SQL type: <code>int</code> →
+          <code>INTEGER</code>, <code>str</code> → <code>VARCHAR</code>,
+          <code>datetime</code> → <code>TIMESTAMP</code>,
+          <code>Decimal</code> → <code>NUMERIC</code>, an
+          <code>enum.Enum</code> → a native PostgreSQL <code>ENUM</code>.
+          Crucially, <code>Mapped[str | None]</code> means <em>nullable</em> —
+          your type checker and your schema now agree by construction.
+        </li>
+        <li>
+          <strong><code>mapped_column()</code> adds what annotations can't say</strong>:
+          lengths, uniqueness, indexes, defaults, constraints. When you have
+          nothing to add, omit it entirely (see <code>nickname</code>).
+        </li>
+        <li>
+          <strong>Nothing new underneath</strong>: the class generates exactly the
+          <code>Table</code> you built by hand in Chapter 3 — it's right there at
+          <code>User.__table__</code>, and <code>Base.metadata</code> is the same
+          <code>MetaData</code> you already know.
+        </li>
+      </ul>
+
+      <aside class="callout watch21">
+        <span class="callout-title">⏭ 2.1 watch</span>
+        <p>
+          If you've seen <code>declarative_base()</code> (a function, not a class)
+          or models built from bare <code>Column</code> attributes, that's 1.x
+          style — it still runs in 2.0, but it's untyped and slated for the
+          history books. New code should always subclass
+          <code>DeclarativeBase</code>; 2.1 continues to modernize around the
+          annotation-driven mapping (dataclass integration gets particularly
+          nice there).
+        </p>
+      </aside>
+
+      <h2>Defaults: Python-side, server-side, and why it matters</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">two kinds of default</figcaption>
+        <pre><code class="language-python">stock:      Mapped[int]      = mapped_column(default=0)                # Python-side
+created_at: Mapped[datetime] = mapped_column(server_default=func.now()) # server-side</code></pre>
+      </figure>
+      <p>
+        <code>default=</code> is filled in <em>by SQLAlchemy</em> when your Python
+        code inserts a row and didn't set the attribute. <code>server_default=</code>
+        goes into the <code>CREATE TABLE</code> itself — <code>DEFAULT now()</code> —
+        so it applies to <em>every</em> insert, including ones from
+        <code>psql</code>, cron jobs, and services that aren't yours. For data
+        integrity facts like timestamps, prefer the server side. (There's also
+        <code>onupdate=</code> for last-modified columns.)
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          <code>default=datetime.utcnow()</code> — with parentheses — is the
+          classic self-inflicted wound: it evaluates <em>once at import</em>, and
+          every row gets the timestamp of your last deploy. Pass the function
+          (<code>default=datetime.utcnow</code>), or better, use
+          <code>server_default=func.now()</code> and never think about it again.
+        </p>
+      </aside>
+
+      <h2>Constraints deserve names — here's the trick</h2>
+      <p>
+        Declare a <code>CheckConstraint</code> or let <code>unique=True</code>
+        generate one, and by default the <em>database</em> invents its name.
+        SQLAlchemy doesn't know it; Alembic (Chapter 9) therefore can't emit
+        <code>DROP CONSTRAINT</code> for it later. The fix is a
+        <strong>naming convention</strong> on your metadata, set once, on day one:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch04/03_naming_conventions.py — abridged</figcaption>
+        <pre><code class="language-python">from sqlalchemy import MetaData
+
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+
+class Base(DeclarativeBase):
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)</code></pre>
+      </figure>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">what the database sees — every constraint named</figcaption>
+        <pre><code class="language-sql">CREATE TABLE pets (
+    id SERIAL NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    owner_id INTEGER NOT NULL,
+    CONSTRAINT pk_pets PRIMARY KEY (id),
+    CONSTRAINT fk_pets_owner_id_owners FOREIGN KEY(owner_id) REFERENCES owners (id)
+)</code></pre>
+      </figure>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          This is the single highest-leverage five lines in this book. Teams that
+          skip it discover the problem a year in, when a migration needs to drop
+          a unique constraint on a 200-million-row table and nobody can name it —
+          the constraint exists as <code>orders_customer_email_key</code> on
+          staging and <code>orders_customer_email_key1</code> in production,
+          because it was created twice by hand. Set the convention before your
+          first migration and every environment agrees forever.
+        </p>
+      </aside>
+
+      <h2>Richer columns: a quick vocabulary tour</h2>
+      <p><code>examples/ch04/02_types_and_constraints.py</code> builds an
+        <code>Order</code> model exercising the toolbox; highlights:</p>
+      <table>
+        <thead><tr><th>Need</th><th>Spelling</th></tr></thead>
+        <tbody>
+          <tr><td>Long prose</td><td><code>Mapped[str | None] = mapped_column(Text)</code></td></tr>
+          <tr><td>Money</td><td><code>Mapped[Decimal] = mapped_column(Numeric(10, 2))</code> — never Float</td></tr>
+          <tr><td>Status field</td><td><code>Mapped[OrderStatus]</code> from a Python <code>enum.Enum</code> → native PG ENUM</td></tr>
+          <tr><td>Semi-structured data</td><td><code>Mapped[dict | None] = mapped_column(JSONB)</code> (PostgreSQL dialect)</td></tr>
+          <tr><td>Fast lookups</td><td><code>mapped_column(index=True)</code></td></tr>
+          <tr><td>Multi-column rules</td><td><code>__table_args__ = (UniqueConstraint(...), CheckConstraint(...))</code></td></tr>
+          <tr><td>Column name ≠ attribute name</td><td><code>mapped_column("metadata", JSONB)</code> — first positional arg</td></tr>
+        </tbody>
+      </table>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run: <code>uv run examples/ch04/01_first_model.py</code>,
+          <code>02_types_and_constraints.py</code> (watch the generated DDL),
+          <code>03_naming_conventions.py</code>.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch04</code> — declare a
+          <code>Product</code> model to a precise spec. The tests inspect your
+          generated table: types, nullability, both kinds of default, and a CHECK
+          constraint that must come out named
+          <code>ck_ch04_products_non_negative_stock</code> via the convention.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch03.html"><span class="dir">← Previous</span>Querying with Core</a>
+        <a class="next" href="ch05.html"><span class="dir">Next →</span>The Session</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

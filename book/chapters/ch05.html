@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 5 · The Session — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html" class="current"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 5 · Part II — The ORM</p>
+      <h1>The Session</h1>
+      <p class="lede">
+        The Session is the ORM's brain: a workspace that watches your objects,
+        computes the SQL you didn't write, and guarantees one Python object per
+        database row. Understand its rhythm — accumulate, flush, commit — and the
+        ORM stops feeling magical and starts feeling inevitable.
+      </p>
+
+      <h2>The unit of work: nothing happens until it has to</h2>
+      <p>
+        When you <code>session.add()</code> an object, <strong>no SQL runs</strong>.
+        When you change an attribute of a loaded object, <strong>no SQL runs</strong>.
+        The Session accumulates intent, and only converts it to INSERT/UPDATE/DELETE
+        at a <strong>flush</strong> — which happens automatically right before any
+        query (so your queries see your own pending changes), and unconditionally
+        at commit. Run <code>examples/ch05/01_unit_of_work.py</code> with its SQL
+        echo and watch the timing:
+      </p>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">the rhythm, annotated</figcaption>
+        <pre><code class="language-text">&gt;&gt;&gt; session.add(...) x3   (watch: NO SQL happens)
+&gt;&gt;&gt; running a query        (watch: the INSERTs happen NOW — autoflush)
+INSERT INTO heroes (name) VALUES (%(name)s), (%(name)s), (%(name)s) ...
+SELECT heroes.id FROM heroes ORDER BY heroes.id DESC LIMIT 1
+&gt;&gt;&gt; session.commit()       (watch: just COMMIT — work was already flushed)
+COMMIT</code></pre>
+      </figure>
+      <p>
+        This is why the ORM can batch three INSERTs into one
+        <em>insertmanyvalues</em> statement, order operations to satisfy foreign
+        keys, and skip UPDATEs for objects that didn't actually change: it sees
+        the whole picture before writing anything.
+      </p>
+      <p>
+        The other pillar is the <strong>identity map</strong>: within one session,
+        a row has exactly one Python object. Load "user #7" through two different
+        queries and you get the <em>same object</em>, <code>is</code>-identical.
+        No stale copies of the same row disagreeing with each other — that class
+        of bug simply doesn't exist inside a session.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          The identity map is <strong>not a query cache</strong>. Only
+          <code>session.get(User, 7)</code> — primary-key lookup — can skip SQL.
+          A <code>select().where(User.email == ...)</code> always hits the
+          database; it just <em>reuses the existing object</em> when rows come
+          back. If you expected caching, you'll see more SQL than you thought;
+          if you expected fresh data mid-transaction, note that attribute values
+          of already-loaded objects are <em>not</em> overwritten by later queries.
+        </p>
+      </aside>
+
+      <h2>The four lives of an object</h2>
+      <table>
+        <thead><tr><th>State</th><th>Meaning</th><th>How it got there</th></tr></thead>
+        <tbody>
+          <tr><td><strong>transient</strong></td><td>Plain object; no session, no row</td><td><code>User(...)</code></td></tr>
+          <tr><td><strong>pending</strong></td><td>Queued for INSERT at next flush</td><td><code>session.add()</code></td></tr>
+          <tr><td><strong>persistent</strong></td><td>Has a row; watched for changes</td><td>flush, or loaded by a query</td></tr>
+          <tr><td><strong>detached</strong></td><td>Has a row; nobody watching</td><td><code>session.close()</code> / eviction</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <code>examples/ch05/02_object_states.py</code> walks one object through all
+        four (plus <code>merge()</code> to re-attach a detached object — useful,
+        but if you're merging a lot, your session boundaries are probably wrong).
+        The state lives at <code>inspect(obj)</code> when you need to debug.
+      </p>
+
+      <h2>flush ≠ commit</h2>
+      <ul>
+        <li><strong>flush</strong> — write pending changes to the database
+          <em>inside the open transaction</em>. Generated primary keys appear on
+          your objects. Nothing is durable yet; a rollback still undoes it.</li>
+        <li><strong>commit</strong> — flush, then <code>COMMIT</code>. Durable.
+          And then, by default… everything expires.</li>
+      </ul>
+
+      <h2>expire_on_commit — the default that explains two chapters</h2>
+      <p>
+        After <code>commit()</code>, the session marks every attribute of every
+        object <strong>expired</strong>: the next attribute access silently runs a
+        SELECT to reload fresh data. Watch it happen
+        (<code>examples/ch05/03_expire_on_commit.py</code>):
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">the invisible SELECT</figcaption>
+        <pre><code class="language-python">with Session(engine) as session:
+    cat = Cat(name="Behemoth")
+    session.add(cat)
+    session.commit()
+
+    print(cat.name)   # looks free — actually runs SELECT ... WHERE id = 1</code></pre>
+      </figure>
+      <p>
+        Inside a plain sync script this is merely surprising. But that
+        <em>attribute-access-that-does-IO</em> is precisely what cannot happen in
+        two important places: <strong>async code</strong> (no implicit IO allowed —
+        <code>MissingGreenlet</code>, Chapter 8) and <strong>web handlers</strong>
+        that touch objects after the session closed
+        (<code>DetachedInstanceError</code>, Chapter 12). Both cures start with
+        <code>Session(engine, expire_on_commit=False)</code> — keep your loaded
+        state, accept it may be a hair stale after commit. Remember this section;
+        we will point back at it twice.
+      </p>
+
+      <h2>Session lifecycle: short, scoped, external</h2>
+      <p>The official guidance compresses to three rules:</p>
+      <ol>
+        <li><strong>One session per logical operation</strong> — a request, a job,
+          a CLI command. Minutes, not hours; never global.</li>
+        <li><strong>The function that uses a session shouldn't create it</strong> —
+          sessions are passed in (or dependency-injected, Chapter 12). The docs
+          literally label embedded session management "the wrong way to do it."</li>
+        <li><strong>One session, one thread/task.</strong> Session is not
+          thread-safe, by design. The engine is; share that instead.</li>
+      </ol>
+      <figure class="codeblock">
+        <figcaption class="code-label">the canonical shape</figcaption>
+        <pre><code class="language-python">from sqlalchemy.orm import sessionmaker
+
+SessionLocal = sessionmaker(engine)      # once, at module level
+
+def do_business_thing(session: Session, ...):   # receives, never creates
+    ...
+
+with SessionLocal() as session:          # per operation
+    do_business_thing(session, ...)
+    session.commit()</code></pre>
+      </figure>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          A session holds a database connection <em>from its first query until
+          commit/rollback/close</em>. A "convenient" long-lived session — module
+          global, class attribute, "we'll just reuse it" — is therefore also a
+          <em>connection leak</em> (remember the Chapter 2 pool math) plus an
+          ever-growing identity map (a memory leak) plus a long-running
+          transaction (table bloat and lock contention in PostgreSQL). The
+          chapter challenge runs your code against a pool of exactly one
+          connection: leak a single session and the tests deadlock.
+        </p>
+      </aside>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run: <code>uv run examples/ch05/01_unit_of_work.py</code> (watch the SQL
+          timing), <code>02_object_states.py</code>, <code>03_expire_on_commit.py</code>.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch05</code> — build
+          create/rename/score functions with clean session-per-operation
+          hygiene. The test pool has one connection and zero patience.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch04.html"><span class="dir">← Previous</span>Declarative models</a>
+        <a class="next" href="ch06.html"><span class="dir">Next →</span>Querying with the ORM</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

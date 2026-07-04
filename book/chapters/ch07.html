@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 7 · Relationships — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html" class="current"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 7 · Part II — The ORM</p>
+      <h1>Relationships</h1>
+      <p class="lede">
+        <code>relationship()</code> turns foreign keys into object navigation —
+        <code>book.author</code>, <code>author.books</code>. It's the ORM's best
+        feature and the source of its most famous performance bug. This chapter
+        gives you both: the modeling, and the loader discipline.
+      </p>
+
+      <h2>One-to-many, both directions</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch07/01_one_to_many.py — abridged</figcaption>
+        <pre><code class="language-python">class Author(Base):
+    __tablename__ = "authors"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+
+    books: Mapped[list["Book"]] = relationship(
+        back_populates="author",
+        cascade="all, delete-orphan",
+    )
+
+
+class Book(Base):
+    __tablename__ = "books"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    author_id: Mapped[int] = mapped_column(ForeignKey("authors.id"))
+
+    author: Mapped[Author] = relationship(back_populates="books")</code></pre>
+      </figure>
+      <p>Three things to notice:</p>
+      <ul>
+        <li>The <code>ForeignKey</code> column still exists — relationships are
+          built <em>on</em> the FK, not instead of it. But you'll rarely assign
+          <code>author_id</code> by hand again: set <code>book.author</code> or
+          append to <code>author.books</code> and the flush works out the keys.</li>
+        <li><code>back_populates</code> names the attribute on the <em>other</em>
+          class, and SQLAlchemy keeps the two in sync in Python, immediately —
+          set <code>book.author = le_guin</code> and the book is already in
+          <code>le_guin.books</code>, before any SQL exists.</li>
+        <li>One <code>session.add(author)</code> saves the whole graph — the
+          <code>save-update</code> cascade follows relationships to find related
+          pending objects.</li>
+      </ul>
+      <p>
+        <code>cascade="all, delete-orphan"</code> encodes an ownership claim:
+        books belong to their author. Delete the author and the books go too
+        (<code>delete</code>); <em>remove a book from the collection</em> and the
+        orphaned row is deleted rather than left dangling with a NULL FK
+        (<code>delete-orphan</code>). For relationships that are mere references
+        — a book's <em>publisher</em>, say — you'd omit the cascade; don't claim
+        ownership you don't mean.
+      </p>
+
+      <h2>Many-to-many: the association table</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch07/02_many_to_many.py — abridged</figcaption>
+        <pre><code class="language-python">post_tags = Table(                      # plain Core — no identity, no class
+    "post_tags", Base.metadata,
+    Column("post_id", ForeignKey("posts.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
+
+class Post(Base):
+    ...
+    tags: Mapped[list["Tag"]] = relationship(secondary=post_tags, back_populates="posts")
+
+class Tag(Base):
+    ...
+    posts: Mapped[list[Post]] = relationship(secondary=post_tags, back_populates="tags")</code></pre>
+      </figure>
+      <p>
+        <code>secondary=</code> points at the join table and SQLAlchemy manages its
+        rows invisibly — append a tag, a row appears; remove it, the row goes.
+        The moment the association needs <em>data of its own</em> (added_at, who
+        added it), promote it to a real mapped class and the m2m becomes two
+        one-to-manys — the "association object" pattern.
+      </p>
+
+      <h2>The N+1 problem, with a body count</h2>
+      <p>
+        Relationships load <strong>lazily</strong> by default: first access emits a
+        SELECT. Innocent in a script; a massacre in a loop.
+        <code>examples/ch07/03_n_plus_one.py</code> counts actual statements with
+        an event listener:
+      </p>
+      <figure class="codeblock sql-echo">
+        <figcaption class="code-label">actual output — 10 bands, 30 albums</figcaption>
+        <pre><code class="language-text">lazy loading:      30 albums fetched with 11 queries  &lt;- N+1!
+selectinload:      30 albums fetched with 2 queries
+joinedload:        30 albums + their 10 bands in 1 query
+raiseload:         InvalidRequestError: 'Band.albums' is not available due to lazy='raise'</code></pre>
+      </figure>
+      <p>
+        Eleven queries for ten bands: one for the bands, plus one per band the
+        moment the loop touches <code>band.albums</code>. It works, it's correct,
+        and at 10,000 rows it's a production incident with your name on it. The
+        fixes are <strong>loader options</strong> — same query, different loading
+        plan:
+      </p>
+      <table>
+        <thead><tr><th>Loader</th><th>SQL shape</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>selectinload(A.items)</code></td>
+            <td>2nd SELECT with <code>IN (parent ids)</code></td>
+            <td><strong>Collections</strong> — the default answer</td>
+          </tr>
+          <tr>
+            <td><code>joinedload(A.parent)</code></td>
+            <td>LEFT OUTER JOIN, same statement</td>
+            <td><strong>Many-to-one</strong> — one extra column set, no row explosion</td>
+          </tr>
+          <tr>
+            <td><code>raiseload(A.items)</code></td>
+            <td>no SQL — raises instead</td>
+            <td>Enforcement: turn hidden IO into loud errors</td>
+          </tr>
+          <tr>
+            <td><code>lazyload</code> / default</td>
+            <td>SELECT on first access</td>
+            <td>Genuinely rare access on single objects</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          <code>joinedload()</code> on a <em>collection</em> multiplies parent
+          rows by the join (10 bands × 3 albums = 30 result rows), so SQLAlchemy
+          requires <code>session.scalars(stmt).unique().all()</code> to
+          de-duplicate — and raises a very explicit error if you forget. That's
+          the deeper reason the rule of thumb exists:
+          <strong>selectinload for collections, joinedload for
+          many-to-ones</strong> — each is the shape that doesn't distort the
+          result set.
+        </p>
+      </aside>
+
+      <aside class="callout production">
+        <span class="callout-title">🏭 In production</span>
+        <p>
+          N+1s are invisible in development — 3 test rows load fast no matter
+          what. Two habits catch them before customers do: run dev with
+          <code>echo=True</code> occasionally and <em>read</em> the flood; and
+          put <code>raiseload("*")</code> on query paths that must be
+          IO-complete (or globally in tests — Chapter 10 shows the fixture).
+          The async world goes further: over there, every lazy load is
+          <em>already</em> an error. Chapter 8 explains why that's a feature.
+        </p>
+      </aside>
+
+      <h2>Ordering and sensible defaults</h2>
+      <p>
+        Collections come back in database order — i.e., no order at all. Declare
+        one where it's intrinsic:
+        <code>relationship(..., order_by="Player.goals.desc()")</code>. And
+        for large collections consider whether you want a relationship at all —
+        <code>select(Album).where(Album.band_id == b.id).limit(...)</code> beats
+        loading ten thousand albums to show five. (2.0 also offers
+        <code>lazy="write_only"</code> for exactly this: a relationship you can
+        append to but never accidentally load.)
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run: <code>uv run examples/ch07/01_one_to_many.py</code>,
+          <code>02_many_to_many.py</code>, and especially
+          <code>03_n_plus_one.py</code>.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch07</code> — wire up the
+          relationships yourself, then satisfy queries under a
+          <strong>query budget enforced by an event listener</strong>. Correct
+          answers with N+1 loops fail. This is the chapter where the tests
+          fight back.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch06.html"><span class="dir">← Previous</span>Querying with the ORM</a>
+        <a class="next" href="ch08.html"><span class="dir">Next →</span>Async SQLAlchemy</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>

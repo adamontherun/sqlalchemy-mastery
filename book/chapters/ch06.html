@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch 6 · Querying with the ORM — SQLAlchemy Mastery</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("book-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");</script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="book">
+
+  <aside class="sidebar">
+    <a class="brand" href="../index.html">SQLAlchemy <span class="accent">Mastery</span></a>
+    <p class="tagline">A field guide to modern SQLAlchemy</p>
+    <nav aria-label="Chapters">
+      <p class="part-label">Part I · Foundations</p>
+      <ol>
+        <li><a href="ch01.html"><span class="ch-num">1</span>The lay of the land</a></li>
+        <li><a href="ch02.html"><span class="ch-num">2</span>Engines &amp; connections</a></li>
+        <li><a href="ch03.html"><span class="ch-num">3</span>Querying with Core</a></li>
+      </ol>
+      <p class="part-label">Part II · The ORM</p>
+      <ol>
+        <li><a href="ch04.html"><span class="ch-num">4</span>Declarative models</a></li>
+        <li><a href="ch05.html"><span class="ch-num">5</span>The Session</a></li>
+        <li><a href="ch06.html" class="current"><span class="ch-num">6</span>Querying with the ORM</a></li>
+        <li><a href="ch07.html"><span class="ch-num">7</span>Relationships</a></li>
+      </ol>
+      <p class="part-label">Part III · Async</p>
+      <ol>
+        <li><a href="ch08.html"><span class="ch-num">8</span>Async SQLAlchemy</a></li>
+      </ol>
+      <p class="part-label">Part IV · Production</p>
+      <ol>
+        <li><a href="ch09.html"><span class="ch-num">9</span>Migrations with Alembic</a></li>
+        <li><a href="ch10.html"><span class="ch-num">10</span>Testing</a></li>
+        <li><a href="ch11.html"><span class="ch-num">11</span>Performance</a></li>
+        <li><a href="ch12.html"><span class="ch-num">12</span>FastAPI integration</a></li>
+      </ol>
+    </nav>
+    <button class="theme-toggle" type="button">☾ Dark mode</button>
+  </aside>
+
+  <button class="menu-btn" type="button" aria-label="Toggle chapter list">☰ Chapters</button>
+
+  <main>
+    <article>
+      <p class="kicker">Chapter 6 · Part II — The ORM</p>
+      <h1>Querying with the ORM</h1>
+      <p class="lede">
+        Here's the payoff of learning Core first: there is no "ORM query language"
+        to learn. It's the same <code>select()</code> — you just put classes in it
+        and get objects out.
+      </p>
+
+      <h2>select(Entity) and the scalars() habit</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch06/01_select_entities.py — abridged</figcaption>
+        <pre><code class="language-python">films = session.scalars(
+    select(Film).where(Film.year &gt;= 2016).order_by(Film.year)
+).all()                                    # -&gt; list[Film]
+
+dune = session.scalars(select(Film).where(Film.title == "Dune")).one()
+
+film = session.get(Film, 1)               # PK lookup; identity-map aware</code></pre>
+      </figure>
+      <p>
+        The one wrinkle worth understanding: <code>session.execute(select(Film))</code>
+        returns <em>rows</em> — tuples of one <code>Film</code> each, i.e.
+        <code>(Film,)</code> — because a select can name several things. Since you
+        usually want just the objects, <code>session.scalars()</code> unwraps the
+        first element of each row. Internalize the pair:
+        <strong><code>execute()</code> for rows, <code>scalars()</code> for
+        objects</strong>, and 90% of "why is my result a tuple?" confusion never
+        happens.
+      </p>
+      <p>
+        Model attributes are the same column expressions you used in Chapter 3 —
+        <code>Film.year &gt;= 2016</code>, <code>Film.title.ilike("%dune%")</code>,
+        <code>Film.id.in_([1, 2, 3])</code> all compile exactly as before.
+      </p>
+
+      <h2>Aggregates and mixed selections</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch06/02_aggregates_and_orm.py — abridged</figcaption>
+        <pre><code class="language-python"># pure aggregation — comes back as plain named-tuple rows
+stmt = (
+    select(Track.artist, func.count().label("n"), func.sum(Track.plays))
+    .group_by(Track.artist)
+)
+
+# an ENTITY and a computed value side by side, per row
+share = Track.plays * 100 / select(func.sum(Track.plays)).scalar_subquery()
+stmt = select(Track, share.label("pct")).order_by(share.desc())
+for track, pct in session.execute(stmt):
+    ...                                     # a Film-grade object AND its stat</code></pre>
+      </figure>
+
+      <h2>Set-based writes: ORM-enabled UPDATE and DELETE</h2>
+      <p>
+        Chapter 5's load-mutate-commit is right for business logic on individual
+        objects. For "touch ten thousand rows" it would be a disaster — so the
+        ORM also accepts Core's <code>update()</code>/<code>delete()</code>
+        directly on the session:
+      </p>
+      <figure class="codeblock">
+        <figcaption class="code-label">one statement, not ten thousand</figcaption>
+        <pre><code class="language-python">session.execute(
+    update(Track)
+    .where(Track.artist == "Sigur Rós")
+    .values(plays=Track.plays + 1)
+)
+session.execute(delete(Track).where(Track.plays &lt; 100))</code></pre>
+      </figure>
+      <p>
+        The ORM-enabled versions do something Core alone can't: they also update
+        or evict matching objects <em>already loaded in the session</em>, keeping
+        your in-memory world consistent with what you just did to the database.
+      </p>
+
+      <h2>Upserts: when "insert or update" must be atomic</h2>
+      <figure class="codeblock">
+        <figcaption class="code-label">examples/ch06/03_upsert.py — abridged</figcaption>
+        <pre><code class="language-python">from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+stmt = pg_insert(Setting).values(key="theme", value="dark")
+stmt = stmt.on_conflict_do_update(
+    index_elements=[Setting.key],
+    set_={"value": stmt.excluded.value},   # EXCLUDED = the row that clashed
+)
+session.execute(stmt)</code></pre>
+      </figure>
+      <p>
+        The check-then-insert alternative (<code>SELECT</code>, then decide) has a
+        race window between the check and the write; two concurrent requests both
+        pass the check, one crashes. <code>ON CONFLICT</code> moves the decision
+        into the database where it's atomic. Note the import: upsert syntax is
+        deliberately <em>dialect-specific</em> (this one lives in
+        <code>sqlalchemy.dialects.postgresql</code>), because every database
+        spells it differently — SQLAlchemy refuses to paper over semantics that
+        differ.
+      </p>
+
+      <aside class="callout gotcha">
+        <span class="callout-title">⚠ Gotcha</span>
+        <p>
+          ORM-enabled bulk UPDATE/DELETE and upserts <strong>do not fire
+          cascades or most ORM events</strong> — they're set-based SQL, and rows
+          the statement touches were never loaded. If your model relies on
+          Python-side <code>delete-orphan</code> cascade behavior (Chapter 7) or
+          event listeners, those only run through the unit of work
+          (load-and-mutate), not through bulk statements. Know which mode
+          you're in.
+        </p>
+      </aside>
+
+      <h2>When the ORM is the wrong tool</h2>
+      <p>
+        A quiet rule of thumb to close the chapter: the ORM earns its overhead
+        when <em>identity and behavior</em> matter — the same row seen twice must
+        be the same object, changes should be tracked, cascades should fire. For
+        read-heavy reporting where rows go straight into JSON or a DataFrame,
+        select plain columns (<code>select(Track.artist, ...)</code>) or drop to a
+        <code>Connection</code> — no identity map to fill, no objects to
+        construct. Chapter 11 puts numbers on this.
+      </p>
+
+      <div class="tryit">
+        <h3>⚡ Try it</h3>
+        <p>
+          Run: <code>uv run examples/ch06/01_select_entities.py</code>,
+          <code>02_aggregates_and_orm.py</code>, <code>03_upsert.py</code>.
+        </p>
+        <p>
+          Challenge: <code>uv run pytest challenges/ch06</code> — a library loan
+          desk: overdue books, loan counts per member (JOIN + GROUP BY in one
+          query), and a bulk return via <code>UPDATE ... IN</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-nav">
+        <a href="ch05.html"><span class="dir">← Previous</span>The Session</a>
+        <a class="next" href="ch07.html"><span class="dir">Next →</span>Relationships</a>
+      </nav>
+    </article>
+  </main>
+</div>
+<script src="../assets/vendor/highlight.min.js"></script>
+<script src="../assets/book.js"></script>
+</body>
+</html>
