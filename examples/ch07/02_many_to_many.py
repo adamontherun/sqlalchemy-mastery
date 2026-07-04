@@ -5,7 +5,11 @@ Run me:  uv run examples/ch07/02_many_to_many.py
 
 from sqlalchemy import Column, ForeignKey, String, Table, create_engine, func, select
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, Session, mapped_column, relationship,
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
 )
 
 
@@ -26,18 +30,14 @@ class Post(Base):
     __tablename__ = "ch07_posts"
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
-    tags: Mapped[list["Tag"]] = relationship(
-        secondary=post_tags, back_populates="posts"
-    )
+    tags: Mapped[list["Tag"]] = relationship(secondary=post_tags, back_populates="posts")
 
 
 class Tag(Base):
     __tablename__ = "ch07_tags"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(50), unique=True)
-    posts: Mapped[list[Post]] = relationship(
-        secondary=post_tags, back_populates="tags"
-    )
+    posts: Mapped[list[Post]] = relationship(secondary=post_tags, back_populates="tags")
 
 
 engine = create_engine("postgresql+psycopg://course:course@localhost:5439/course")
@@ -45,11 +45,13 @@ Base.metadata.create_all(engine)
 
 with Session(engine) as session:
     python, sql, war_stories = Tag(name="python"), Tag(name="sql"), Tag(name="war-stories")
-    session.add_all([
-        Post(title="Why your pool is exhausted", tags=[python, sql, war_stories]),
-        Post(title="N+1 queries: a horror story", tags=[sql, war_stories]),
-        Post(title="uv in anger", tags=[python]),
-    ])
+    session.add_all(
+        [
+            Post(title="Why your pool is exhausted", tags=[python, sql, war_stories]),
+            Post(title="N+1 queries: a horror story", tags=[sql, war_stories]),
+            Post(title="uv in anger", tags=[python]),
+        ]
+    )
     session.commit()
 
     # navigate: tag -> posts

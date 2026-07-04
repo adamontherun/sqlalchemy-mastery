@@ -5,8 +5,14 @@ Run me:  uv run examples/ch07/03_n_plus_one.py
 
 from sqlalchemy import ForeignKey, String, create_engine, event, select
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, Session, joinedload, mapped_column,
-    raiseload, relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    Session,
+    joinedload,
+    mapped_column,
+    raiseload,
+    relationship,
+    selectinload,
 )
 
 
@@ -51,8 +57,8 @@ with Session(engine) as session:
 # ---- the accident --------------------------------------------------------
 with Session(engine) as session:
     query_count = 0
-    bands = session.scalars(select(Band)).all()          # 1 query
-    total = sum(len(band.albums) for band in bands)      # +1 query PER BAND
+    bands = session.scalars(select(Band)).all()  # 1 query
+    total = sum(len(band.albums) for band in bands)  # +1 query PER BAND
     print(f"lazy loading:      {total} albums fetched with {query_count} queries  <- N+1!")
 
 # ---- fix 1: selectinload — the default answer for collections ------------
@@ -66,10 +72,12 @@ with Session(engine) as session:
 with Session(engine) as session:
     query_count = 0
     albums = session.scalars(
-        select(Album).options(joinedload(Album.band))    # LEFT OUTER JOIN
+        select(Album).options(joinedload(Album.band))  # LEFT OUTER JOIN
     ).all()
     names = {album.band.name for album in albums}
-    print(f"joinedload:        {len(albums)} albums + their {len(names)} bands in {query_count} query")
+    print(
+        f"joinedload:        {len(albums)} albums + their {len(names)} bands in {query_count} query"
+    )
 
 # ---- fix 3: raiseload — make hidden IO a loud error ----------------------
 with Session(engine) as session:

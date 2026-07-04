@@ -1,7 +1,6 @@
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine
-
 from conftest import ASYNC_DB_URL
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 @pytest.fixture()

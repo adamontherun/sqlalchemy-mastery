@@ -1,8 +1,7 @@
 import pytest
+from conftest import DB_URL
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
-
-from conftest import DB_URL
 
 CITIES = ["Lisbon", "Nairobi", "Osaka", "Denver", "Tallinn"]
 

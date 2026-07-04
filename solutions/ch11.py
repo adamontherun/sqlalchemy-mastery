@@ -2,7 +2,11 @@
 
 from sqlalchemy import ForeignKey, String, func, insert, select
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, Session, mapped_column, relationship,
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
 )
 
 

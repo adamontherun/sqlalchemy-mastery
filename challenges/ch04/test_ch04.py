@@ -1,9 +1,8 @@
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import CheckConstraint, Numeric, String, Text, create_engine, select
-
 from conftest import DB_URL
+from sqlalchemy import CheckConstraint, Numeric, String, Text, create_engine, select
 
 
 @pytest.fixture(scope="module")
@@ -68,9 +67,13 @@ def test_model_round_trips(subject):
         from sqlalchemy.orm import Session
 
         with Session(engine) as session:
-            session.add(subject.Product(
-                sku="TEA-001", name="Gunpowder tea", price=Decimal("12.50"),
-            ))
+            session.add(
+                subject.Product(
+                    sku="TEA-001",
+                    name="Gunpowder tea",
+                    price=Decimal("12.50"),
+                )
+            )
             session.commit()
             product = session.scalars(select(subject.Product)).one()
             assert product.stock == 0, "default should fill stock"

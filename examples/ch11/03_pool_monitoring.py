@@ -29,8 +29,8 @@ def report_slow(conn, cursor, statement, parameters, context, executemany):
 
 
 with engine.connect() as conn:
-    conn.execute(text("SELECT 1"))                       # fast: silent
-    conn.execute(text("SELECT pg_sleep(0.05), 1"))       # slow: logged
+    conn.execute(text("SELECT 1"))  # fast: silent
+    conn.execute(text("SELECT pg_sleep(0.05), 1"))  # slow: logged
     print("(only the slow query above got logged)\n")
 
 # ---- pool introspection ----------------------------------------------------

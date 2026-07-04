@@ -8,7 +8,7 @@ Rules of the game (all chapters):
   * Never build SQL strings with f-strings — always bound parameters.
 """
 
-from sqlalchemy import Engine, URL, create_engine, text
+from sqlalchemy import URL, Engine, create_engine, text
 
 
 def make_url() -> URL:

@@ -7,8 +7,17 @@ queries. Use Core constructs — insert()/select()/update()/func — not text().
 """
 
 from sqlalchemy import (
-    Column, Engine, Integer, MetaData, Numeric, String, Table,
-    func, insert, select, update,
+    Column,
+    Engine,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    func,
+    insert,
+    select,
+    update,
 )
 
 metadata = MetaData()

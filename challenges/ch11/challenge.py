@@ -13,7 +13,12 @@ fast_report(session) must return exactly what naive_report(session) returns.
 
 from sqlalchemy import ForeignKey, String, func, select
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, Session, mapped_column, relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
+    selectinload,
 )
 
 
@@ -46,7 +51,7 @@ def naive_report(session: Session) -> list[tuple[str, int, int]]:
     stores = session.scalars(select(Store)).all()
     rows = []
     for store in stores:
-        n = len(store.sales)                      # lazy load per store!
+        n = len(store.sales)  # lazy load per store!
         total = sum(s.amount_cents for s in store.sales)
         if n:
             rows.append((store.city, n, total))

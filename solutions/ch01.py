@@ -1,6 +1,6 @@
 """Chapter 1 reference solution."""
 
-from sqlalchemy import Engine, URL, create_engine, text
+from sqlalchemy import URL, Engine, create_engine, text
 
 
 def make_url() -> URL:
@@ -21,9 +21,7 @@ def add_numbers(engine: Engine, a: int, b: int) -> int:
 
 def server_major_version(engine: Engine) -> int:
     with engine.connect() as conn:
-        num = conn.execute(
-            text("SELECT current_setting('server_version_num')::int")
-        ).scalar_one()
+        num = conn.execute(text("SELECT current_setting('server_version_num')::int")).scalar_one()
     return num // 10_000
 
 

@@ -1,8 +1,7 @@
 import pytest
+from conftest import DB_URL
 from sqlalchemy import String, create_engine, func, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
-
-from conftest import DB_URL
 
 
 class Base(DeclarativeBase):
@@ -40,7 +39,7 @@ def test_commits_are_invisible_after_stop(subject, engine):
     harness = subject.TransactionalTestHarness(engine)
     session = harness.start()
     session.add_all([Note(body="one"), Note(body="two")])
-    session.commit()          # a real commit from the test's point of view
+    session.commit()  # a real commit from the test's point of view
     harness.stop()
 
     with engine.connect() as conn:  # a completely fresh connection

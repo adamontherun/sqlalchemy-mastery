@@ -23,13 +23,15 @@ engine = create_engine("postgresql+psycopg://course:course@localhost:5439/course
 Base.metadata.create_all(engine)
 
 with Session(engine) as session:
-    session.add_all([
-        Track(title="Everything in Its Right Place", artist="Radiohead", plays=901),
-        Track(title="Idioteque", artist="Radiohead", plays=755),
-        Track(title="Svefn-g-englar", artist="Sigur Rós", plays=402),
-        Track(title="Glósóli", artist="Sigur Rós", plays=311),
-        Track(title="Untitled #3", artist="Sigur Rós", plays=97),
-    ])
+    session.add_all(
+        [
+            Track(title="Everything in Its Right Place", artist="Radiohead", plays=901),
+            Track(title="Idioteque", artist="Radiohead", plays=755),
+            Track(title="Svefn-g-englar", artist="Sigur Rós", plays=402),
+            Track(title="Glósóli", artist="Sigur Rós", plays=311),
+            Track(title="Untitled #3", artist="Sigur Rós", plays=97),
+        ]
+    )
     session.commit()
 
     # aggregates work exactly like Core — model attributes ARE columns
@@ -43,17 +45,15 @@ with Session(engine) as session:
         print(f"  {artist:<12} {n} tracks, {total:>5} plays")
 
     # mixed selection: a full entity AND a computed column in each row
-    ratio = (Track.plays * 100 / select(func.sum(Track.plays)).scalar_subquery())
-    stmt = select(Track, ratio.label("pct")).order_by(ratio.desc()).limit(2)
+    ratio = Track.plays * 100 / select(func.sum(Track.plays)).scalar_subquery()
+    pct_stmt = select(Track, ratio.label("pct")).order_by(ratio.desc()).limit(2)
     print("\n-- top tracks with share of all plays --")
-    for track, pct in session.execute(stmt):
+    for track, pct in session.execute(pct_stmt):
         print(f"  {track.title:<35} {pct:.1f}%")
 
     # ORM-enabled bulk UPDATE/DELETE: set-based SQL, but the session also
     # updates any of these objects it currently holds in memory.
-    session.execute(
-        update(Track).where(Track.artist == "Sigur Rós").values(plays=Track.plays + 1)
-    )
+    session.execute(update(Track).where(Track.artist == "Sigur Rós").values(plays=Track.plays + 1))
     session.execute(delete(Track).where(Track.plays < 100))
     session.commit()
 

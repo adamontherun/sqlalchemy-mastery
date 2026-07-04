@@ -1,0 +1,89 @@
+# Lints, type-checks, and runs the challenge test suite against the
+# reference solutions on every push/PR. A real PostgreSQL 17 service
+# container mirrors compose.yaml (same credentials, same non-default
+# port) so the tests exercise the same database readers get locally.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: course
+          POSTGRES_PASSWORD: course
+          POSTGRES_DB: course
+          PGPORT: 5439
+        ports:
+          - 5439:5439
+        options: >-
+          --health-cmd "pg_isready -U course -d course -p 5439"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type-check (mypy)
+        run: uv run mypy .
+
+      - name: Skeletons must still fail (they're unfinished by design)
+        run: |
+          if uv run pytest challenges -q; then
+            echo "::error::challenges passed against the untouched skeletons — a challenge test isn't testing anything"
+            exit 1
+          fi
+
+      - name: Reference solutions must pass every challenge test
+        run: COURSE_SOLUTIONS=1 uv run pytest challenges -q
+
+      - name: Reference solutions must pass the ch10 isolation demo suite
+        run: uv run pytest examples/ch10 -v
+
+  # Builds the *actual* devcontainer.json + docker-compose.extend.yml a
+  # reader's Codespace uses — not a hand-rolled approximation — and proves
+  # postCreateCommand, the uv feature, and the shared-network Postgres
+  # connection all work together. This is the only thing in CI that would
+  # have caught a Codespaces-specific regression (a broken feature version,
+  # a port mismatch inside the shared network namespace, postCreateCommand
+  # failing silently) automatically, instead of relying on the one-time
+  # manual check this devcontainer got when it was first built.
+  devcontainer-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the devcontainer and run a real example inside it
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/${{ github.repository }}-devcontainer
+          push: never
+          runCmd: |
+            set -e
+            uv sync
+            uv run examples/ch01/01_hello_sqlalchemy.py
+            COURSE_SOLUTIONS=1 uv run pytest challenges -q

@@ -1,7 +1,6 @@
 import pytest
-from sqlalchemy import create_engine, text
-
 from conftest import DB_URL
+from sqlalchemy import create_engine, text
 
 SEED = [
     {"title": "The Left Hand of Darkness", "genre": "sf", "price": 18.99},

@@ -10,24 +10,32 @@ Then try it:
     curl -s localhost:8012/stats
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Annotated, AsyncIterator
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Column, ForeignKey, String, Table, func, select
 from sqlalchemy.ext.asyncio import (
-    AsyncSession, async_sessionmaker, create_async_engine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
 )
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, mapped_column, relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    selectinload,
 )
 
 DATABASE_URL = "postgresql+asyncpg://course:course@localhost:5439/course"
 
 
 # ---------------------------------------------------------------- models --
+
 
 class Base(DeclarativeBase):
     pass
@@ -58,6 +66,7 @@ class Tag(Base):
 
 # --------------------------------------------------------------- schemas --
 
+
 class TagOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)  # read from ORM objects
     name: str
@@ -80,6 +89,7 @@ class BookmarkOut(BaseModel):
 
 # ------------------------------------------------------ engine lifecycle --
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # ONE engine + ONE sessionmaker for the whole app, built at startup.
@@ -88,13 +98,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)  # demo; real apps: Alembic
     yield
-    await engine.dispose()                             # ch08's rule, honored
+    await engine.dispose()  # ch08's rule, honored
 
 
 app = FastAPI(title="Bookmarks", lifespan=lifespan)
 
 
 # ------------------------------------------------- session-per-request ----
+
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     """One AsyncSession per request: commit on success, rollback on error."""
@@ -113,30 +124,28 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 # -------------------------------------------------------------- endpoints --
 
+
 @app.post("/bookmarks", response_model=BookmarkOut, status_code=201)
 async def create_bookmark(payload: BookmarkIn, session: SessionDep) -> Bookmark:
     # upsert-ish tag handling: reuse existing tags by name
     tags: list[Tag] = []
     if payload.tags:
         existing = {
-            t.name: t
-            for t in await session.scalars(
-                select(Tag).where(Tag.name.in_(payload.tags))
-            )
+            t.name: t for t in await session.scalars(select(Tag).where(Tag.name.in_(payload.tags)))
         }
         tags = [existing.get(name) or Tag(name=name) for name in payload.tags]
 
     bookmark = Bookmark(url=payload.url, title=payload.title, tags=tags)
     session.add(bookmark)
-    await session.flush()          # get id + server defaults now
-    return bookmark                # serialized AFTER commit: expire_on_commit=False
+    await session.flush()  # get id + server defaults now
+    return bookmark  # serialized AFTER commit: expire_on_commit=False
 
 
 @app.get("/bookmarks", response_model=list[BookmarkOut])
 async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
     result = await session.scalars(
         select(Bookmark)
-        .options(selectinload(Bookmark.tags))   # response includes tags -> eager
+        .options(selectinload(Bookmark.tags))  # response includes tags -> eager
         .order_by(Bookmark.created_at.desc())
     )
     return list(result)
@@ -144,9 +153,7 @@ async def list_bookmarks(session: SessionDep) -> list[Bookmark]:
 
 @app.get("/bookmarks/{bookmark_id}", response_model=BookmarkOut)
 async def get_bookmark(bookmark_id: int, session: SessionDep) -> Bookmark:
-    bookmark = await session.get(
-        Bookmark, bookmark_id, options=[selectinload(Bookmark.tags)]
-    )
+    bookmark = await session.get(Bookmark, bookmark_id, options=[selectinload(Bookmark.tags)])
     if bookmark is None:
         raise HTTPException(404, "no such bookmark")
     return bookmark

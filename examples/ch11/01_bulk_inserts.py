@@ -27,7 +27,9 @@ Base.metadata.create_all(engine)
 
 def reset() -> None:
     with engine.begin() as conn:
-        conn.execute(Reading.__table__.delete())
+        # __table__ is typed as the more general FromClause; it's always a
+        # Table for a declarative class, which is what actually has .delete().
+        conn.execute(Reading.__table__.delete())  # type: ignore[attr-defined]
 
 
 def timed(label: str, fn) -> None:
@@ -48,9 +50,7 @@ def worst_commit_each() -> None:
 def better_one_commit() -> None:
     # ORM unit of work batches via insertmanyvalues; one transaction
     with Session(engine) as session:
-        session.add_all(
-            Reading(sensor=f"s{i % 10}", value=i) for i in range(N)
-        )
+        session.add_all(Reading(sensor=f"s{i % 10}", value=i) for i in range(N))
         session.commit()
 
 

@@ -3,14 +3,13 @@
 Run me:  uv run pytest examples/ch10 -v
 """
 
-from sqlalchemy import func, select
-
 from conftest import Widget
+from sqlalchemy import func, select
 
 
 def test_writes_and_commits(db_session):
     db_session.add(Widget(name="gizmo"))
-    db_session.commit()                       # a REAL commit in app code terms
+    db_session.commit()  # a REAL commit in app code terms
     db_session.add(Widget(name="doohickey"))
     db_session.commit()
 
@@ -26,7 +25,7 @@ def test_sees_none_of_the_previous_tests_data(db_session):
 
 def test_rollback_mid_test_works_too(db_session):
     db_session.add(Widget(name="oops"))
-    db_session.rollback()                     # app code rolling back: also fine
+    db_session.rollback()  # app code rolling back: also fine
     assert db_session.scalar(select(func.count(Widget.id))) == 0
 
 

@@ -2,8 +2,13 @@
 
 from sqlalchemy import ForeignKey, String, select
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, Session, joinedload, mapped_column,
-    relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    Session,
+    joinedload,
+    mapped_column,
+    relationship,
+    selectinload,
 )
 
 
@@ -34,9 +39,7 @@ class Player(Base):
 
 
 def rosters(session: Session) -> dict[str, list[str]]:
-    teams = session.scalars(
-        select(Team).options(selectinload(Team.players))
-    ).all()
+    teams = session.scalars(select(Team).options(selectinload(Team.players))).all()
     return {team.name: [p.name for p in team.players] for team in teams}
 
 

@@ -5,7 +5,11 @@ Run me:  uv run examples/ch07/01_one_to_many.py
 
 from sqlalchemy import ForeignKey, String, create_engine, select
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, Session, mapped_column, relationship,
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
 )
 
 
@@ -50,9 +54,7 @@ with Session(engine) as session:
     session.commit()
 
     # navigate the other way
-    fetched = session.scalars(
-        select(Book).where(Book.title == "The Dispossessed")
-    ).one()
+    fetched = session.scalars(select(Book).where(Book.title == "The Dispossessed")).one()
     print(f"book.author.name -> {fetched.author.name}")
 
     # delete-orphan: removing a book from the collection deletes its row

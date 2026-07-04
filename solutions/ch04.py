@@ -21,9 +21,7 @@ class Base(DeclarativeBase):
 
 class Product(Base):
     __tablename__ = "ch04_products"
-    __table_args__ = (
-        CheckConstraint("stock >= 0", name="non_negative_stock"),
-    )
+    __table_args__ = (CheckConstraint("stock >= 0", name="non_negative_stock"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sku: Mapped[str] = mapped_column(String(32), unique=True)

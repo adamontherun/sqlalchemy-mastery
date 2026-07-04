@@ -10,7 +10,11 @@ post-commit attribute expiry will raise MissingGreenlet and fail you.
 from sqlalchemy import ForeignKey, String, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, mapped_column, relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    selectinload,
 )
 
 

@@ -8,7 +8,13 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    CheckConstraint, Numeric, String, Text, UniqueConstraint, create_engine, func,
+    CheckConstraint,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -53,13 +59,13 @@ class Order(Base):
     # timestamps: server_default runs IN the database -> correct even if
     # rows are inserted by psql, a cron job, or another service entirely.
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now()
-    )
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
 engine = create_engine("postgresql+psycopg://course:course@localhost:5439/course")
-print(CreateTable(Order.__table__).compile(engine))
+# __table__ is typed as the more general FromClause; it's always a Table
+# for a declarative class, which is what CreateTable actually expects.
+print(CreateTable(Order.__table__).compile(engine))  # type: ignore[arg-type]
 
 Base.metadata.create_all(engine)
 with Session(engine) as session:

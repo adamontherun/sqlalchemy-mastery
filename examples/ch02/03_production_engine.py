@@ -7,12 +7,12 @@ from sqlalchemy import create_engine, event, text
 
 engine = create_engine(
     "postgresql+psycopg://course:course@localhost:5439/course",
-    pool_size=5,           # steady-state connections kept open
-    max_overflow=10,       # burst headroom (closed again when idle)
-    pool_timeout=30,       # how long a checkout waits before TimeoutError
-    pool_pre_ping=True,    # test each connection on checkout ("SELECT 1")
-    pool_recycle=1800,     # retire connections older than 30 min
-    echo_pool=True,        # log the pool's decisions (demo; off in prod)
+    pool_size=5,  # steady-state connections kept open
+    max_overflow=10,  # burst headroom (closed again when idle)
+    pool_timeout=30,  # how long a checkout waits before TimeoutError
+    pool_pre_ping=True,  # test each connection on checkout ("SELECT 1")
+    pool_recycle=1800,  # retire connections older than 30 min
+    echo_pool=True,  # log the pool's decisions (demo; off in prod)
 )
 
 

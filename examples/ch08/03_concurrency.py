@@ -7,7 +7,9 @@ import asyncio
 
 from sqlalchemy import String, func, select
 from sqlalchemy.ext.asyncio import (
-    AsyncSession, async_sessionmaker, create_async_engine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -35,7 +37,8 @@ async def worker(name: str, factory: async_sessionmaker[AsyncSession]) -> None:
 async def main() -> None:
     engine = create_async_engine(
         "postgresql+asyncpg://course:course@localhost:5439/course",
-        pool_size=5, max_overflow=2,
+        pool_size=5,
+        max_overflow=2,
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -47,9 +50,11 @@ async def main() -> None:
 
     async with factory() as session:
         total = await session.scalar(select(func.count(Event.id)))
-        per_worker = (await session.execute(
-            select(Event.worker, func.count()).group_by(Event.worker).order_by(Event.worker)
-        )).all()
+        per_worker = (
+            await session.execute(
+                select(Event.worker, func.count()).group_by(Event.worker).order_by(Event.worker)
+            )
+        ).all()
     print(f"total events: {total}")
     print("per worker:  ", ", ".join(f"{w}={n}" for w, n in per_worker))
 

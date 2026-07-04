@@ -2,9 +2,8 @@ import pytest
 import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import create_engine, inspect, text
-
 from conftest import DB_URL
+from sqlalchemy import create_engine, inspect, text
 
 
 @pytest.fixture()
@@ -46,9 +45,9 @@ def test_upgrade_names_the_constraints(subject, migrated):
 
 def test_server_default_works(subject, migrated):
     with migrated.begin() as conn:
-        conn.execute(text(
-            "INSERT INTO ch09_links (slug, target) VALUES ('gh', 'https://github.com')"
-        ))
+        conn.execute(
+            text("INSERT INTO ch09_links (slug, target) VALUES ('gh', 'https://github.com')")
+        )
         clicks = conn.execute(text("SELECT clicks FROM ch09_links")).scalar_one()
     assert clicks == 0
 

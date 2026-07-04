@@ -12,10 +12,10 @@ from sqlalchemy import Engine, text
 def make_production_engine(url: str) -> Engine:
     """Create an engine configured for a long-running service:
 
-      * 10 persistent connections, up to 5 more under burst load
-      * connections tested with a ping before every checkout
-      * connections retired after 30 minutes (1800s), pre-empting
-        firewalls and load balancers that kill idle TCP
+    * 10 persistent connections, up to 5 more under burst load
+    * connections tested with a ping before every checkout
+    * connections retired after 30 minutes (1800s), pre-empting
+      firewalls and load balancers that kill idle TCP
     """
     raise NotImplementedError
 

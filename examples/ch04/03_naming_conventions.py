@@ -39,6 +39,8 @@ class Pet(Base):
 engine = create_engine("postgresql+psycopg://course:course@localhost:5439/course")
 
 print("Every constraint now has a deterministic, Alembic-friendly name:\n")
-print(CreateTable(Owner.__table__).compile(engine))
-print(CreateTable(Pet.__table__).compile(engine))
+# __table__ is typed as the more general FromClause; it's always a Table
+# for a declarative class, which is what CreateTable actually expects.
+print(CreateTable(Owner.__table__).compile(engine))  # type: ignore[arg-type]
+print(CreateTable(Pet.__table__).compile(engine))  # type: ignore[arg-type]
 engine.dispose()

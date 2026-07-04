@@ -38,8 +38,8 @@ with Session(engine) as session:
 
 print("\n========== identity map ==========")
 with Session(engine) as session:
-    a = session.get(Hero, 1)          # SELECT happens
-    b = session.get(Hero, 1)          # NO SELECT — the session already has #1
+    a = session.get(Hero, 1)  # SELECT happens
+    b = session.get(Hero, 1)  # NO SELECT — the session already has #1
     print(f"a is b -> {a is b}  (one row, ONE Python object per session)")
 
     c = session.scalars(select(Hero).where(Hero.name == "Murderbot")).one()

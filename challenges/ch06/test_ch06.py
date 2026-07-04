@@ -1,10 +1,9 @@
 import datetime
 
 import pytest
+from conftest import DB_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-
-from conftest import DB_URL
 
 TODAY = datetime.date(2026, 7, 1)
 
@@ -26,16 +25,31 @@ def session(subject, engine):
         alan = subject.Member(name="Alan", joined=datetime.date(2025, 11, 20))
         session.add_all([ada, grace, alan])
         session.flush()
-        session.add_all([
-            subject.Loan(member_id=ada.id, book_title="Gödel, Escher, Bach",
-                         due=datetime.date(2026, 6, 12)),
-            subject.Loan(member_id=ada.id, book_title="The Art of Computer Programming",
-                         due=datetime.date(2026, 7, 20)),
-            subject.Loan(member_id=ada.id, book_title="A Pattern Language",
-                         due=datetime.date(2026, 5, 1), returned=True),
-            subject.Loan(member_id=grace.id, book_title="The Mythical Man-Month",
-                         due=datetime.date(2026, 6, 28)),
-        ])
+        session.add_all(
+            [
+                subject.Loan(
+                    member_id=ada.id,
+                    book_title="Gödel, Escher, Bach",
+                    due=datetime.date(2026, 6, 12),
+                ),
+                subject.Loan(
+                    member_id=ada.id,
+                    book_title="The Art of Computer Programming",
+                    due=datetime.date(2026, 7, 20),
+                ),
+                subject.Loan(
+                    member_id=ada.id,
+                    book_title="A Pattern Language",
+                    due=datetime.date(2026, 5, 1),
+                    returned=True,
+                ),
+                subject.Loan(
+                    member_id=grace.id,
+                    book_title="The Mythical Man-Month",
+                    due=datetime.date(2026, 6, 28),
+                ),
+            ]
+        )
         session.commit()
         yield session
     subject.Base.metadata.drop_all(engine)

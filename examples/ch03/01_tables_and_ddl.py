@@ -4,7 +4,14 @@ Run me:  uv run examples/ch03/01_tables_and_ddl.py
 """
 
 from sqlalchemy import (
-    Column, ForeignKey, Integer, MetaData, Numeric, String, Table, create_engine,
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    create_engine,
 )
 from sqlalchemy.schema import CreateTable
 

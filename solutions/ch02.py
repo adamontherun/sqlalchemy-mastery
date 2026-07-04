@@ -17,15 +17,13 @@ def transfer(engine: Engine, from_account: str, to_account: str, amount: int) ->
     with engine.begin() as conn:  # one transaction; rollback on any exception
         conn.execute(
             text(
-                "UPDATE ch02_accounts SET balance_cents = balance_cents + :amt "
-                "WHERE name = :name"
+                "UPDATE ch02_accounts SET balance_cents = balance_cents + :amt WHERE name = :name"
             ),
             {"amt": amount, "name": to_account},
         )
         conn.execute(
             text(
-                "UPDATE ch02_accounts SET balance_cents = balance_cents - :amt "
-                "WHERE name = :name"
+                "UPDATE ch02_accounts SET balance_cents = balance_cents - :amt WHERE name = :name"
             ),
             {"amt": amount, "name": from_account},
         )

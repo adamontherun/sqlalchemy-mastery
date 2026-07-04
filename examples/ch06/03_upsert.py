@@ -21,12 +21,13 @@ class Setting(Base):
 engine = create_engine("postgresql+psycopg://course:course@localhost:5439/course")
 Base.metadata.create_all(engine)
 
+
 # The generic insert() is portable; the DIALECT insert knows PostgreSQL tricks.
 def upsert_setting(session: Session, key: str, value: str) -> None:
     stmt = pg_insert(Setting).values(key=key, value=value)
     stmt = stmt.on_conflict_do_update(
         index_elements=[Setting.key],
-        set_={"value": stmt.excluded.value},   # EXCLUDED = the row that clashed
+        set_={"value": stmt.excluded.value},  # EXCLUDED = the row that clashed
     )
     session.execute(stmt)
 
@@ -34,7 +35,7 @@ def upsert_setting(session: Session, key: str, value: str) -> None:
 with Session(engine) as session:
     upsert_setting(session, "theme", "light")
     upsert_setting(session, "lang", "en")
-    upsert_setting(session, "theme", "dark")      # same key: updates, no error
+    upsert_setting(session, "theme", "dark")  # same key: updates, no error
     session.commit()
 
     for setting in session.scalars(select(Setting).order_by(Setting.key)):

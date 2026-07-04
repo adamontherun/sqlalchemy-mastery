@@ -30,10 +30,11 @@ class Widget(Base):
 
 # ---------------------------------------------------------------- sync ----
 
+
 @pytest.fixture(scope="session")
 def engine():
     engine = create_engine(DB_URL)
-    Base.metadata.create_all(engine)      # schema once per test session
+    Base.metadata.create_all(engine)  # schema once per test session
     yield engine
     Base.metadata.drop_all(engine)
     engine.dispose()
@@ -42,18 +43,19 @@ def engine():
 @pytest.fixture()
 def db_session(engine):
     connection = engine.connect()
-    outer = connection.begin()            # the transaction no test can commit
+    outer = connection.begin()  # the transaction no test can commit
     session = Session(
         bind=connection,
-        join_transaction_mode="create_savepoint",   # commits -> SAVEPOINTs
+        join_transaction_mode="create_savepoint",  # commits -> SAVEPOINTs
     )
     yield session
     session.close()
-    outer.rollback()                      # everything the test did: gone
+    outer.rollback()  # everything the test did: gone
     connection.close()
 
 
 # --------------------------------------------------------------- async ----
+
 
 @pytest_asyncio.fixture()
 async def async_db_session():

@@ -3,7 +3,11 @@
 from sqlalchemy import ForeignKey, String, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, mapped_column, relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    selectinload,
 )
 
 
@@ -49,9 +53,7 @@ async def playlists_with_songs(
     async with factory() as session:
         playlists = (
             await session.scalars(
-                select(Playlist)
-                .options(selectinload(Playlist.songs))
-                .order_by(Playlist.id)
+                select(Playlist).options(selectinload(Playlist.songs)).order_by(Playlist.id)
             )
         ).all()
         return {p.name: [s.title for s in p.songs] for p in playlists}
@@ -59,4 +61,4 @@ async def playlists_with_songs(
 
 async def song_count(factory: async_sessionmaker[AsyncSession]) -> int:
     async with factory() as session:
-        return await session.scalar(select(func.count(Song.id)))
+        return (await session.scalars(select(func.count(Song.id)))).one()

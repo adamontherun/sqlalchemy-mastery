@@ -3,8 +3,17 @@
 from decimal import Decimal
 
 from sqlalchemy import (
-    Column, Engine, Integer, MetaData, Numeric, String, Table,
-    func, insert, select, update,
+    Column,
+    Engine,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    func,
+    insert,
+    select,
+    update,
 )
 
 metadata = MetaData()
@@ -30,7 +39,7 @@ def add_books(engine: Engine, rows: list[dict]) -> int:
 def titles_in_genre(engine: Engine, genre: str) -> list[str]:
     stmt = select(books.c.title).where(books.c.genre == genre).order_by(books.c.title)
     with engine.connect() as conn:
-        return conn.execute(stmt).scalars().all()
+        return list(conn.execute(stmt).scalars().all())
 
 
 def average_price_by_genre(engine: Engine) -> dict[str, float]:

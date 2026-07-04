@@ -40,7 +40,7 @@ def peak_mb(fn) -> tuple[int, float]:
 
 def load_everything() -> int:
     with Session(engine) as session:
-        rows = session.scalars(select(LogLine)).all()   # every object at once
+        rows = session.scalars(select(LogLine)).all()  # every object at once
         return len(rows)
 
 

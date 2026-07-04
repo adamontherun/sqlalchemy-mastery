@@ -1,16 +1,23 @@
 """Chapter 12 reference solution."""
 
-from typing import Annotated, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import ForeignKey, String, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
-    AsyncEngine, AsyncSession, async_sessionmaker,
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
 )
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, mapped_column, relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    selectinload,
 )
 
 
@@ -22,9 +29,7 @@ class Board(Base):
     __tablename__ = "ch12_boards"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
-    cards: Mapped[list["Card"]] = relationship(
-        back_populates="board", cascade="all, delete-orphan"
-    )
+    cards: Mapped[list["Card"]] = relationship(back_populates="board", cascade="all, delete-orphan")
 
 
 class Card(Base):
@@ -77,9 +82,9 @@ def build_app(engine: AsyncEngine) -> FastAPI:
         session.add(board)
         try:
             await session.flush()
-        except IntegrityError:
+        except IntegrityError as exc:
             await session.rollback()
-            raise HTTPException(409, "board name already exists")
+            raise HTTPException(409, "board name already exists") from exc
         return board
 
     @app.post("/boards/{board_id}/cards", response_model=CardOut, status_code=201)

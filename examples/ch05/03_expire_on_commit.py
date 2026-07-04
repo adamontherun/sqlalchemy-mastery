@@ -32,7 +32,7 @@ print("--- default: expire_on_commit=True ---")
 with Session(engine) as session:
     cat = Cat(name="Behemoth")
     session.add(cat)
-    session.commit()          # every attribute of `cat` is now EXPIRED
+    session.commit()  # every attribute of `cat` is now EXPIRED
 
     statements.clear()
     print(f"cat.name -> {cat.name!r}")
@@ -41,12 +41,13 @@ with Session(engine) as session:
 
 print("--- expire_on_commit=False ---")
 with Session(engine, expire_on_commit=False) as session:
-    cat = session.get(Cat, 1)
-    cat.name = "Behemoth the Great"
+    fetched_cat = session.get(Cat, 1)
+    assert fetched_cat is not None, "row 1 was just committed above"
+    fetched_cat.name = "Behemoth the Great"
     session.commit()
 
     statements.clear()
-    print(f"cat.name -> {cat.name!r}")
+    print(f"cat.name -> {fetched_cat.name!r}")
     print(f"...that attribute access ran SQL: {statements or 'none — served from memory'}")
 
 print("\nWhy you care: in async code (ch08) that silent reload-on-touch is not")

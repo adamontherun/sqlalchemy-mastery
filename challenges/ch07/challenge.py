@@ -8,8 +8,13 @@ produced by N+1 loops will fail — you must use loader options.
 
 from sqlalchemy import ForeignKey, String, select
 from sqlalchemy.orm import (
-    DeclarativeBase, Mapped, Session, joinedload, mapped_column,
-    relationship, selectinload,
+    DeclarativeBase,
+    Mapped,
+    Session,
+    joinedload,
+    mapped_column,
+    relationship,
+    selectinload,
 )
 
 

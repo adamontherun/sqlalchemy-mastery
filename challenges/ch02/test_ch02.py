@@ -1,9 +1,8 @@
 import pytest
-from sqlalchemy import create_engine, text
+from conftest import DB_URL
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import QueuePool
-
-from conftest import DB_URL
 
 
 @pytest.fixture(scope="module")
@@ -17,14 +16,14 @@ def engine(subject):
 def accounts(engine):
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS ch02_accounts"))
-        conn.execute(text(
-            "CREATE TABLE ch02_accounts ("
-            " name text PRIMARY KEY,"
-            " balance_cents int NOT NULL CHECK (balance_cents >= 0))"
-        ))
-        conn.execute(text(
-            "INSERT INTO ch02_accounts VALUES ('alice', 10000), ('bob', 500)"
-        ))
+        conn.execute(
+            text(
+                "CREATE TABLE ch02_accounts ("
+                " name text PRIMARY KEY,"
+                " balance_cents int NOT NULL CHECK (balance_cents >= 0))"
+            )
+        )
+        conn.execute(text("INSERT INTO ch02_accounts VALUES ('alice', 10000), ('bob', 500)"))
     yield
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS ch02_accounts"))

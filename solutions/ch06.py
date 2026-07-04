@@ -1,8 +1,9 @@
 """Chapter 6 reference solution."""
 
 import datetime
+from typing import cast
 
-from sqlalchemy import ForeignKey, String, func, select, update
+from sqlalchemy import CursorResult, ForeignKey, String, func, select, update
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 
@@ -53,8 +54,12 @@ def busiest_member(session: Session) -> str:
 
 
 def mark_returned(session: Session, titles: list[str]) -> int:
-    result = session.execute(
-        update(Loan).where(Loan.book_title.in_(titles)).values(returned=True)
+    # session.execute() is typed to return the generic Result[Any] regardless
+    # of statement kind; an UPDATE always actually returns a CursorResult,
+    # which is what carries .rowcount.
+    result = cast(
+        CursorResult,
+        session.execute(update(Loan).where(Loan.book_title.in_(titles)).values(returned=True)),
     )
     session.commit()
     return result.rowcount

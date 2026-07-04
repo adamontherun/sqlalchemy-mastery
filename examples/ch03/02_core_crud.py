@@ -4,13 +4,23 @@ Run me:  uv run examples/ch03/02_core_crud.py
 """
 
 from sqlalchemy import (
-    Column, Integer, MetaData, Numeric, String, Table, create_engine,
-    delete, insert, select, update,
+    Column,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    create_engine,
+    delete,
+    insert,
+    select,
+    update,
 )
 
 metadata = MetaData()
 books = Table(
-    "ch03_crud_books", metadata,
+    "ch03_crud_books",
+    metadata,
     Column("id", Integer, primary_key=True),
     Column("title", String(200), nullable=False),
     Column("genre", String(50), nullable=False),

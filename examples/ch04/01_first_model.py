@@ -27,8 +27,10 @@ class User(Base):
 
 
 # Every model *is* a Core Table underneath — nothing from ch03 was wasted:
+# (__table__ is typed as the more general FromClause; it's always a Table
+# for a declarative class, which is what actually has .name.)
 print("The generated Table object:")
-print(f"  name:    {User.__table__.name}")
+print(f"  name:    {User.__table__.name}")  # type: ignore[attr-defined]
 print(f"  columns: {[c.name for c in User.__table__.columns]}")
 print(f"  email nullable? {User.__table__.c.email.nullable}")
 print(f"  nickname nullable? {User.__table__.c.nickname.nullable}")

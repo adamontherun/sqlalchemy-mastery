@@ -23,9 +23,7 @@ class Quote(Base):
 
 async def main() -> None:
     # note the driver: +asyncpg, not +psycopg
-    engine = create_async_engine(
-        "postgresql+asyncpg://course:course@localhost:5439/course"
-    )
+    engine = create_async_engine("postgresql+asyncpg://course:course@localhost:5439/course")
     print(f"pool class: {type(engine.pool).__name__}")  # AsyncAdaptedQueuePool
 
     # DDL is sync-only machinery — run_sync bridges it:
@@ -36,11 +34,16 @@ async def main() -> None:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async with session_factory() as session:
-        session.add_all([
-            Quote(text="Simple is better than complex.", author="Tim Peters"),
-            Quote(text="There are only two hard things in Computer Science: "
-                       "cache invalidation and naming things.", author="Phil Karlton"),
-        ])
+        session.add_all(
+            [
+                Quote(text="Simple is better than complex.", author="Tim Peters"),
+                Quote(
+                    text="There are only two hard things in Computer Science: "
+                    "cache invalidation and naming things.",
+                    author="Phil Karlton",
+                ),
+            ]
+        )
         await session.commit()
 
     async with session_factory() as session:

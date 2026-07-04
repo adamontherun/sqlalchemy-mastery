@@ -1,8 +1,7 @@
 import pytest
+from conftest import DB_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-from conftest import DB_URL
 
 
 @pytest.fixture(scope="module")
