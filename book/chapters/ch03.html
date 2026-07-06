@@ -156,12 +156,13 @@ with engine.begin() as conn:
       <aside class="callout underhood">
         <span class="callout-title">🔬 Under the hood</span>
         <p>
-          That list-of-dicts form triggers insertmanyvalues, a 2.0
-          feature: SQLAlchemy rewrites the INSERT to carry many
-          <code>VALUES (...), (...), ...</code> tuples per statement, even
-          combined with <code>RETURNING</code>, which classic DBAPI
-          <code>executemany</code> can't do. That's how the ORM flushes thousands
-          of new objects fast, too.
+          That list-of-dicts form invokes DBAPI <code>executemany</code>.
+          When SQLAlchemy also needs rows back, such as
+          <code>INSERT ... RETURNING</code> or ORM flushes that must retrieve
+          generated primary keys, 2.0's <em>insertmanyvalues</em> feature may
+          rewrite the INSERT to carry many <code>VALUES (...), (...), ...</code>
+          tuples per statement. That's how the ORM flushes thousands of new
+          objects fast while still populating the identity map.
         </p>
       </aside>
 

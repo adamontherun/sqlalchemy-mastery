@@ -103,9 +103,10 @@
         Your models are the desired state; the database is the
         current state; a migration is a diff with a
         direction: an <code>upgrade()</code> and (write it!) a
-        <code>downgrade()</code>. Migrations form a chain of revisions, and the
-        database remembers where it stands in a single-row table Alembic manages
-        (<code>alembic_version</code>).
+        <code>downgrade()</code>. In the common linear case, migrations form a
+        chain of revisions and the database remembers where it stands in an
+        Alembic-managed <code>alembic_version</code> table. With unmerged
+        branches, that table can hold multiple rows: one current head per branch.
       </p>
       <p>
         A ready-to-explore project lives at

@@ -190,8 +190,9 @@
         <li><code>Column("name", String(50))</code> in models, replaced by
           <code>Mapped[str]</code> annotations with <code>mapped_column()</code>,
           giving you real static typing end to end.</li>
-        <li><code>engine.execute(...)</code> or bare string execution. Implicit
-          "autocommit" connections are gone; transactions are always explicit now.</li>
+        <li><code>engine.execute(...)</code> or bare string execution. Library-level
+          "autocommit" is gone; first use still autobegins a transaction, and you
+          explicitly commit or roll it back.</li>
       </ul>
       <p>
         None of the old spellings make you faster; they just make your code look like

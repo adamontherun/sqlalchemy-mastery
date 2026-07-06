@@ -170,7 +170,7 @@ yield_per=1000, same rows:    peak memory    2.5 MB</code></pre>
         <tbody>
           <tr><td>Business logic on a few entities</td><td>ORM objects</td><td>Identity, cascades, unit of work earn their cost</td></tr>
           <tr><td>Report / API listing</td><td><code>select(cols)</code>, rows</td><td>No identity map churn, no object construction</td></tr>
-          <tr><td>Bulk write</td><td>Core <code>insert()</code> + dict lists</td><td>insertmanyvalues batching, no per-object overhead</td></tr>
+          <tr><td>Bulk write</td><td>Core <code>insert()</code> + dict lists</td><td>DBAPI executemany, no per-object overhead</td></tr>
           <tr><td>Bulk mutate</td><td><code>update()/delete()</code> with WHERE</td><td>One statement replaces N load-modify-saves</td></tr>
           <tr><td>Unbounded read</td><td><code>yield_per</code> / <code>stream()</code></td><td>Constant memory</td></tr>
         </tbody>

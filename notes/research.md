@@ -127,11 +127,15 @@ Sources: community patterns (Medium/Hashnode guides, 2025–2026), FastAPI docs
 - Engine + `async_sessionmaker` created once, ideally in `lifespan`; dispose on shutdown.
 - Session-per-request via a `Depends` generator that yields an `AsyncSession`.
   FastAPI caches a dependency within one request → repositories share the session.
-- Commit at the end of the request handler (or in the dependency), rollback on error.
-- `expire_on_commit=False` is mandatory: response serialization happens after commit.
-- Serialization gotcha: Pydantic touching a lazy relationship after the session is
-  closed raises `MissingGreenlet`/`DetachedInstanceError`. Eager-load whatever the
-  response model needs.
+- Commit once per request. If commit failure must affect the HTTP response, commit
+  before returning from the endpoint; FastAPI's default request-scoped yield
+  dependency finalizer runs after response serialization / send.
+- `expire_on_commit=False` is still the practical async-web default: it keeps loaded
+  state available when code commits before returning or when objects are used after
+  a transaction boundary.
+- Serialization gotcha: Pydantic touching a lazy relationship can attempt async
+  lazy IO and raise `MissingGreenlet`; after a session is closed, it may also raise
+  `DetachedInstanceError`. Eager-load whatever the response model needs.
 - Measured community benchmarks report roughly 3 to 5 times more req/s for async
   DB endpoints under IO-bound load (locust tests) vs sync equivalents.
 

@@ -78,8 +78,9 @@ def build_app(engine: AsyncEngine) -> FastAPI:
 
          GET /boards
             -> 200, list[BoardOut] ordered by name — cards included, which
-               means eager loading (serialization happens after your
-               session closed).
+               means eager loading. Response serialization may touch the
+               relationship after your path function returns, so don't leave it
+               to async lazy loading.
     """
     app = FastAPI()
 

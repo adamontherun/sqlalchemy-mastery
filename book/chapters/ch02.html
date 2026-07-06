@@ -153,10 +153,11 @@ with engine.connect() as conn:
 # count == 0: the INSERT is gone</code></pre>
       </figure>
       <p>
-        Modern SQLAlchemy has no autocommit. Every connection is
-        always inside a transaction, and when a connection goes back to the pool,
-        the pool issues a rollback to guarantee the next borrower
-        gets a clean connection. Uncommitted work evaporates, silently and by design.
+        Modern SQLAlchemy has no library-level autocommit. A connection
+        autobegins a transaction on first use, and when that connection goes
+        back to the pool, the pool issues a rollback to guarantee the next
+        borrower gets a clean connection. Uncommitted work evaporates, silently
+        and by design.
       </p>
       <p>You have two intentional patterns to choose from:</p>
       <figure class="codeblock">

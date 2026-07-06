@@ -138,7 +138,7 @@ async def create_bookmark(payload: BookmarkIn, session: SessionDep) -> Bookmark:
     bookmark = Bookmark(url=payload.url, title=payload.title, tags=tags)
     session.add(bookmark)
     await session.flush()  # get id + server defaults now
-    return bookmark  # serialized AFTER commit: expire_on_commit=False
+    return bookmark  # response serialization reads already-loaded attributes
 
 
 @app.get("/bookmarks", response_model=list[BookmarkOut])

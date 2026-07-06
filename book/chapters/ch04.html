@@ -147,10 +147,11 @@ class User(Base):
         <span class="callout-title">⏭ 2.1 watch</span>
         <p>
           If you've seen <code>declarative_base()</code> (a function, not a class)
-          or models built from bare <code>Column</code> attributes, that's 1.x
-          style. It still runs in 2.0, but it's untyped and slated for the
-          history books. New code should always subclass
-          <code>DeclarativeBase</code>; 2.1 continues to modernize around the
+          or models built from bare <code>Column</code> attributes, that's older
+          declarative style. It still runs in 2.0 and remains supported, but it
+          gives type checkers much less to work with. New typed code should
+          subclass <code>DeclarativeBase</code> and use <code>Mapped[]</code> /
+          <code>mapped_column()</code>; 2.1 continues to modernize around the
           annotation-driven mapping (dataclass integration gets particularly
           nice there).
         </p>

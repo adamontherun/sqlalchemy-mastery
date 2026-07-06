@@ -140,24 +140,33 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]</code></pre>
         passed in," where the operation is an HTTP request and the passing is
         <code>Depends</code>. FastAPI caches dependencies per request, so every
         layer that asks for <code>SessionDep</code> (handler, service,
-        repository) shares one session and therefore one transaction. Commit
-        happens in exactly one place; endpoints never call
-        <code>commit()</code> themselves (they may <code>flush()</code> to get
-        generated ids; flush is not commit, Chapter 5).
+        repository) shares one session and therefore one transaction. This
+        teaching app commits in the dependency so endpoints don't repeat
+        transaction boilerplate; endpoints may still <code>flush()</code> to get
+        generated ids, and production code that must turn commit failures into
+        HTTP responses should commit before returning. Flush is not commit,
+        Chapter 5.
       </p>
 
-      <h2>Wall 3: serialization happens after the session closes</h2>
+      <h2>Wall 3: serialization still needs loaded data</h2>
       <p>
         The subtle one. Your handler returns an ORM object; FastAPI/Pydantic
-        serializes it <em>after</em> the dependency generator finished, session
-        closed, transaction committed. Two Chapter 8 traps are armed at exactly
-        that moment. If attributes expired at commit, a reload attempt outside
-        the session raises <code>MissingGreenlet</code> or
-        <code>DetachedInstanceError</code>, which is why
-        <code>expire_on_commit=False</code> in the factory is non-negotiable
-        in this architecture. And if the response model includes a relationship
-        that wasn't loaded, the lazy-load attempt causes the same explosion,
-        which is why whatever the response model needs, the query eager-loads:
+        serializes it after your path function returns and before the response is
+        sent. With FastAPI's default request-scoped <code>yield</code>
+        dependencies, the code after <code>yield</code> runs later, so the
+        dependency's <code>commit()</code> / close path is not a chance to make
+        missing attributes available for serialization. Load response data before
+        returning it, and if a commit failure must change the HTTP response, commit
+        explicitly before returning or return a DTO built from already-flushed
+        state.
+      </p>
+      <p>
+        <code>expire_on_commit=False</code> is still the right factory default for
+        this architecture: code that intentionally commits before returning keeps
+        loaded column state available afterward. And if the response model
+        includes a relationship that wasn't loaded, Pydantic touching it can still
+        attempt async lazy IO and raise <code>MissingGreenlet</code>. Whatever the
+        response model needs, the query eager-loads:
       </p>
       <figure class="codeblock">
         <figcaption class="code-label">the response model dictates the loader options</figcaption>

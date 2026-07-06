@@ -103,10 +103,11 @@
         actual database. Mock the session and you've verified that your code
         calls the methods you mocked, which is a tautology. Swap in SQLite "for
         speed" and you're testing a database with different types, different
-        constraint enforcement, no <code>ON CONFLICT</code> semantics you rely
-        on, and none of the PostgreSQL features (JSONB, enums,
-        <code>RETURNING</code> nuances) this course has been using. You have
-        PostgreSQL 17 in Docker one <code>compose up</code> away. Test against it.
+        constraint enforcement, SQLite-flavored <code>ON CONFLICT</code>
+        behavior instead of PostgreSQL's, and none of the PostgreSQL features
+        (JSONB, enums, <code>RETURNING</code> nuances) this course has been
+        using. You have PostgreSQL 17 in Docker one <code>compose up</code>
+        away. Test against it.
       </p>
       <p>
         The objection is speed and isolation: tests that share a database dirty
